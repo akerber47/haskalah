@@ -1,0 +1,12 @@
+# normal build output
+*.hi
+*.o
+
+# editor temporary files
+\#*\#
+*~
+.*.swp
+*.tmp
+*.bak
+*.orig
+*.nfs*
