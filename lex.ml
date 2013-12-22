@@ -3,14 +3,17 @@
  *)
 
 type token =
-  | NullToken
   | VarId
   | ConId
   | VarSym
   | IntLit
   | CharLit
   | StringLit
-  | Special;;
+  | Special
+  | NullToken     (* These 3 are the "fake" tokens used for lexing that will
+                     not be added to the token queue *)
+  | Comment
+  | BlockComment;;
 
 type lexeme =
   { token     : token;  (* token type of the lexeme *)
@@ -41,95 +44,140 @@ let lex program =
   let lexemes = Queue.create ()
   and curlexeme = ref { token = NullToken; startline = 1; endline = -1;
                         startpos = -1; endpos = -1 }
+  and lines =
+    if Str.search_forward (Str.regexp "\r\n") program then
+      Str.split (Str.regexp "\\(\r\n\\)\\|\f") program
+    else
+      Str.split (Str.regexp "[\r\n\f]") program
+  and blockcomment_depth = ref 0
+  and curline = ref 0
   and i = ref 0 in
-  (* Take the current token, finish it, and add it to the queue. Start a new
-   * token of the given type (identified by its 1st character). If the token
-   * has fixed (known) length, slurp up the rest of it immediately. *)
-  let rec newtok tk =
-    (* Add any current token to the queue *)
-    if !curlexeme.token != NullToken then begin
-      curlexeme := {!curlexeme with endpos = !i};
-      Queue.add !curlexeme lexemes
-    end;
-    curlexeme := { token = tk; startpos = !i; endpos = -1 };
-    (* Check for token types we can process immediately *)
-    match tk with
-      (* Special tokens are only 1 character long *)
-      | Special -> begin
-        i := !i + 1;
-        newtok NullToken
+  (* Processes each line in input program *)
+  let rec do_nextline s =
+    (* Takes the current token, finishes it, and adds it to the queue. Starts a
+     * new token of the given type. If the token has fixed (known) length,
+     * slurp up the rest of it immediately. *)
+    let rec newtok tk =
+      (* Check for 1-line comments *)
+      if !curlexeme.token = VarSym &&
+         is_comment_start (String.sub s
+                                      !curlexeme.startpos
+                                      (!i - !curlexeme.startpos)) then begin
+        (* Symbol token we were going to add actually indicates a start-of-line
+         * comment, so just modify the current token (and keep it current). *)
+        curlexeme := {!curlexeme with token = Comment};
+        (* If this is the end of our string, we then need to pop this comment
+         * immediately (means we got called from the top of do_nextline in the
+         * process of moving to next line of source) *)
+        if !i >= String.length s then
+          newtok NullToken
       end
-      (* Process character literals immediately *)
-      | CharLit -> begin
-        if !i+1 < String.length s then
-          i := !i + 1
-        else
-          lex_error "Unmatched '";
-        match s.[!i] with
-          | '\'' -> lex_error "Empty character literal"
-          (* TODO handle '\&' error case (0 width char literal). Maybe deal
-           * with this when parsing? *)
-          | '\\' -> match_escape ()
+      else begin
+        !curlexeme.startpos
+        if !curlexeme.token != NullToken &&
+           !curlexeme.token != Comment &&
+           !curlexeme.token != BlockComment then begin
+          curlexeme := {!curlexeme with endpos = !i; endline = !curline};
+          Queue.add !curlexeme lexemes
+        end;
+        curlexeme := { token = tk; startline = !curline; endline = -1;
+                       startpos = !i; endpos = -1 };
+        (* Check for token types we can process immediately *)
+        match tk with
+          (* Special tokens are only 1 character long *)
+          | Special -> begin
+            i := !i + 1;
+            newtok NullToken
+          end
+          (* Process character literals immediately *)
+          | CharLit -> begin
+            if !i+1 < String.length s then
+              i := !i + 1
+            else
+              lex_error "Unmatched '";
+            match s.[!i] with
+              | '\'' -> lex_error "Empty character literal"
+              (* TODO handle '\&' error case (0 width char literal). Maybe deal
+               * with this when parsing? *)
+              | '\\' -> match_escape ()
+              | _ -> ();
+            if !i+1 < String.length s then
+              i := !i + 1
+            else
+              lex_error "Unmatched '";
+            if s.[!i] != '\'' then
+              lex_error "Character literal too long";
+            i := !i + 1;
+            newtok NullToken
           | _ -> ();
-        if !i+1 < String.length s then
-          i := !i + 1
-        else
-          lex_error "Unmatched '";
-        if s.[!i] != '\'' then
-          lex_error "Character literal too long";
+        ()
+      end
+    and nextchar_loop () =
+      if !i < String.length s then begin
+        match !curlexeme.token, s.[!i] with
+          (* If we're already inside a 1-line comment, nothing happens *)
+          | Comment, _ -> ()
+          (* Block comment start, note block comments DO nest *)
+          | _, '{' when (!curlexeme.token != StringLit &&
+                         !i + 1 < String.length s && s.[!i+1] = '-') -> begin
+            blockcomment_depth := !blockcomment_depth + 1
+            if blockcomment_depth = 0 then
+              newtok BlockComment;
+          end
+          (* Block comment end *)
+          | _, '-' when (!curlexeme.token != StringLit &&
+                         !i + 1 < String.length s && s.[!i+1] = '}') -> begin
+            blockcomment_depth := !blockcomment_depth - 1
+            if blockcomment_depth = 0 then
+              newtok NullToken;
+          end
+          (* If we're otherwise already inside a block comment, nothing. *)
+          | BlockComment, _ -> ()
+          (* Process the current character. Note that if the current token
+           * continues through this character, we do nothing at all in this
+           * matching step. We process fixed-length tokens (char literals and
+           * specials) immediately when they start, so curlexeme.token CANNOT
+           * be CharLit or Special at this point. *)
+          (* Whitespace or special chars ends the current token,
+           * except in string literals *)
+          | StringLit, c when iswhite(c) || isspecial(c) -> ()
+          | _, c when iswhite(c) -> newtok NullToken
+          | _, c when isspecial(c) -> newtok Special
+          (* Note that digits can appear within varids / conids. Otherwise
+           * these arbitrary-length tokens basically end / start whenever the
+           * character class changes. *)
+          | NullToken | VarSym | IntLit, '_' | 'a' .. 'z' ->
+              newtok VarId
+          | NullToken | VarSym | IntLit, 'A' .. 'Z' ->
+              newtok ConId
+          | NullToken | VarId | ConId | IntLit, c when issymb(c) ->
+              newtok VarSym
+          | NullToken | VarSym , '0' | '1' .. '9' ->
+              newtok IntLit
+          | NullToken | VarId | ConId | VarSym | IntLit, '\'' ->
+              newtok CharLit
+          | NullToken | VarId | ConId | VarSym | IntLit, '"' ->
+              newtok StringLit
+          (* String literals: watch out for escaping and end quotes *)
+          | StringLit, '"' -> newtok NullToken
+          | StringLit, '\\' -> match_escape ()
+          (* Otherwise, current token continues, so do nothing *)
+          | _ -> ();
         i := !i + 1;
-        newtok NullToken
-      | _ -> ();
-    ()
-  and nextchar () =
-    if !i < String.length s then begin
-      match !curlexeme.token, s.[!i] with
-        (* First, check for comments, unless inside string literal. *)
-        | _, '-' when (!curlexeme.token != StringLit &&
-                       !i + 1 < String.length s && s.[!i+1] = '-') -> begin
-          (* End of line comment: look for \r, \n, or \r\n *)
-        end
-        | _, '{' when (!curlexeme.token != StringLit &&
-                       !i + 1 < String.length s && s.[!i+1] = '-') -> begin
-          ()
-        end
-        | _, _ -> ();
-      (* Process the current character. Note that if the current token
-       * continues through this character, we do nothing at all in this
-       * matching step. We process fixed-length tokens (char literals and
-       * specials) immediately when they start, so curlexeme.token CANNOT be
-       * CharLit or Special at this point. *)
-      match !curlexeme.token, s.[!i] with
-        (* Whitespace or special chars ends the current token,
-         * except in string literals *)
-        | StringLit, c when iswhite(c) || isspecial(c) -> ()
-        | _, c when iswhite(c) -> newtok NullToken
-        | _, c when isspecial(c) -> newtok Special
-        (* Note that digits can appear within varids / conids. Other than that
-         * these arbitrary-length tokens basically end / start whenever the
-         * character class changes. *)
-        | NullToken | VarSym | IntLit, '_' | 'a' .. 'z' ->
-            newtok VarId
-        | NullToken | VarSym | IntLit, 'A' .. 'Z' ->
-            newtok ConId
-        | NullToken | VarId | ConId | IntLit, c when issymb(c) ->
-            newtok VarSym
-        | NullToken | VarSym , '0' | '1' .. '9' ->
-            newtok IntLit
-        | NullToken | VarId | ConId | VarSym | IntLit, '\'' ->
-            newtok CharLit
-        | NullToken | VarId | ConId | VarSym | IntLit, '"' ->
-            newtok StringLit
-        (* String literals: watch out for escaping and end quotes *)
-        | StringLit, '"' -> newtok NullToken
-        | StringLit, '\\' -> match_escape ()
-        (* Otherwise, current token continues, so do nothing *)
-        | _ -> ();
-      i := !i + 1;
-      nextchar ()
-    end in
-  nextchar ();
-  (* Push the last token (if any), and return *)
+        nextchar_loop ()
+      end
+    in
+    (* End any current token, unless it can span multiple lines. *)
+    if !curlexeme.token != NullToken && !curlexeme.token != StringLit &&
+       !curlexeme.token != BlockComment then
+      newtok NullToken;
+    curline := !curline + 1;
+    i := 0;
+    nextchar_loop ()
+  in
+  (* Process the whole program, line by line *)
+  List.iter do_nextline lines
+  (* Finish the last token (if any), and return *)
   if !curlexeme.token = StringLit then
     lex_error "Unmatched \"";
   newtok NullToken;
