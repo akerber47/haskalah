@@ -1,5 +1,6 @@
 # normal build output
-*.hi
+*.cmi
+*.cmo
 *.o
 
 # editor temporary files
