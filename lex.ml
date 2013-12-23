@@ -40,20 +40,38 @@ let isspecial = function
   | _ -> false
 ;;
 
+(* Something that looks like a VarSym is actually a start of 1-line comment
+ * if it consists of 2 or more copies of the '-' character. *)
+let is_comment_start s =
+  String.length s >= 2 && s = String.make (String.length s) '-'
+;;
+
+let match_forward re s =
+  try ignore (Str.search_forward re s 0); true
+  with Not_found -> false
+;;
+
 let lex program =
   let lexemes = Queue.create ()
   and curlexeme = ref { token = NullToken; startline = 1; endline = -1;
                         startpos = -1; endpos = -1 }
   and lines =
-    if Str.search_forward (Str.regexp "\r\n") program then
-      Str.split (Str.regexp "\\(\r\n\\)\\|\f") program
+    if match_forward (Str.regexp "\r\n") program then
+      Str.split (Str.regexp "\\(\r\n\\)\\|\x0c") program
     else
-      Str.split (Str.regexp "[\r\n\f]") program
+      Str.split (Str.regexp "[\r\n\x0c]") program
   and blockcomment_depth = ref 0
   and curline = ref 0
   and i = ref 0 in
+  (* Small error handler *)
+  let lex_error errstr =
+    print_string errstr;
+    exit 1
+  in
   (* Processes each line in input program *)
   let rec do_nextline s =
+    (* Matching algorithm for escape sequences in strings. *)
+    let match_escape () = () in
     (* Takes the current token, finishes it, and adds it to the queue. Starts a
      * new token of the given type. If the token has fixed (known) length,
      * slurp up the rest of it immediately. *)
@@ -73,7 +91,6 @@ let lex program =
           newtok NullToken
       end
       else begin
-        !curlexeme.startpos
         if !curlexeme.token != NullToken &&
            !curlexeme.token != Comment &&
            !curlexeme.token != BlockComment then begin
@@ -109,6 +126,7 @@ let lex program =
               lex_error "Character literal too long";
             i := !i + 1;
             newtok NullToken
+          end
           | _ -> ();
         ()
       end
@@ -120,16 +138,16 @@ let lex program =
           (* Block comment start, note block comments DO nest *)
           | _, '{' when (!curlexeme.token != StringLit &&
                          !i + 1 < String.length s && s.[!i+1] = '-') -> begin
-            blockcomment_depth := !blockcomment_depth + 1
-            if blockcomment_depth = 0 then
-              newtok BlockComment;
+            blockcomment_depth := !blockcomment_depth + 1;
+            if !blockcomment_depth = 0 then
+              newtok BlockComment
           end
           (* Block comment end *)
           | _, '-' when (!curlexeme.token != StringLit &&
                          !i + 1 < String.length s && s.[!i+1] = '}') -> begin
-            blockcomment_depth := !blockcomment_depth - 1
-            if blockcomment_depth = 0 then
-              newtok NullToken;
+            blockcomment_depth := !blockcomment_depth - 1;
+            if !blockcomment_depth = 0 then
+              newtok NullToken
           end
           (* If we're otherwise already inside a block comment, nothing. *)
           | BlockComment, _ -> ()
@@ -146,17 +164,17 @@ let lex program =
           (* Note that digits can appear within varids / conids. Otherwise
            * these arbitrary-length tokens basically end / start whenever the
            * character class changes. *)
-          | NullToken | VarSym | IntLit, '_' | 'a' .. 'z' ->
+          | (NullToken | VarSym | IntLit), ('_' | 'a' .. 'z') ->
               newtok VarId
-          | NullToken | VarSym | IntLit, 'A' .. 'Z' ->
+          | (NullToken | VarSym | IntLit), ('A' .. 'Z') ->
               newtok ConId
-          | NullToken | VarId | ConId | IntLit, c when issymb(c) ->
+          | (NullToken | VarId | ConId | IntLit), c when issymb(c) ->
               newtok VarSym
-          | NullToken | VarSym , '0' | '1' .. '9' ->
+          | (NullToken | VarSym), ('0' | '1' .. '9') ->
               newtok IntLit
-          | NullToken | VarId | ConId | VarSym | IntLit, '\'' ->
+          | (NullToken | VarId | ConId | VarSym | IntLit), '\'' ->
               newtok CharLit
-          | NullToken | VarId | ConId | VarSym | IntLit, '"' ->
+          | (NullToken | VarId | ConId | VarSym | IntLit), '"' ->
               newtok StringLit
           (* String literals: watch out for escaping and end quotes *)
           | StringLit, '"' -> newtok NullToken
@@ -176,10 +194,13 @@ let lex program =
     nextchar_loop ()
   in
   (* Process the whole program, line by line *)
-  List.iter do_nextline lines
+  List.iter do_nextline lines;
   (* Finish the last token (if any), and return *)
   if !curlexeme.token = StringLit then
     lex_error "Unmatched \"";
-  newtok NullToken;
+  if !curlexeme.token = BlockComment then
+    lex_error "Unmatched (*";
+  curlexeme := {!curlexeme with endpos = !i; endline = !curline};
+  Queue.add !curlexeme lexemes;
   lexemes
 ;;
