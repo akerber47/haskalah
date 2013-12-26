@@ -91,9 +91,9 @@ let lex program =
           newtok NullToken
       end
       else begin
-        if !curlexeme.token != NullToken &&
-           !curlexeme.token != Comment &&
-           !curlexeme.token != BlockComment then begin
+        if !curlexeme.token <> NullToken &&
+           !curlexeme.token <> Comment &&
+           !curlexeme.token <> BlockComment then begin
           curlexeme := {!curlexeme with endpos = !i; endline = !curline};
           Queue.add !curlexeme lexemes
         end;
@@ -122,7 +122,7 @@ let lex program =
               i := !i + 1
             else
               lex_error "Unmatched '";
-            if s.[!i] != '\'' then
+            if s.[!i] <> '\'' then
               lex_error "Character literal too long";
             i := !i + 1;
             newtok NullToken
@@ -136,14 +136,14 @@ let lex program =
           (* If we're already inside a 1-line comment, nothing happens *)
           | Comment, _ -> ()
           (* Block comment start, note block comments DO nest *)
-          | _, '{' when (!curlexeme.token != StringLit &&
+          | _, '{' when (!curlexeme.token <> StringLit &&
                          !i + 1 < String.length s && s.[!i+1] = '-') -> begin
             blockcomment_depth := !blockcomment_depth + 1;
             if !blockcomment_depth = 0 then
               newtok BlockComment
           end
           (* Block comment end *)
-          | _, '-' when (!curlexeme.token != StringLit &&
+          | _, '-' when (!curlexeme.token <> StringLit &&
                          !i + 1 < String.length s && s.[!i+1] = '}') -> begin
             blockcomment_depth := !blockcomment_depth - 1;
             if !blockcomment_depth = 0 then
@@ -186,8 +186,8 @@ let lex program =
       end
     in
     (* End any current token, unless it can span multiple lines. *)
-    if !curlexeme.token != NullToken && !curlexeme.token != StringLit &&
-       !curlexeme.token != BlockComment then
+    if !curlexeme.token <> NullToken && !curlexeme.token <> StringLit &&
+       !curlexeme.token <> BlockComment then
       newtok NullToken;
     curline := !curline + 1;
     i := 0;
