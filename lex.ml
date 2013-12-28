@@ -3,10 +3,12 @@
  *)
 
 type token =
-  | VarId
-  | ConId
-  | VarSym
+  | QVarId
+  | QConId
+  | QVarSym
+  | QConSym
   | IntLit
+  | FloatLit
   | CharLit
   | StringLit
   | Special
@@ -15,14 +17,16 @@ type token =
   | Comment
   | BlockComment;;
 
-type lexeme =
-  { token     : token;  (* token type of the lexeme *)
-    startline : int;    (* Line of the source string the lexeme starts on *)
-    endline   : int;    (* and ends on. Only strings can be multi line *)
-    startpos  : int;    (* in source string, starting position ... *)
-    endpos    : int;    (* ... and ending position of the lexeme. Following
-                           standard C conventions endpos is after last char *)
-  };;
+type lexeme = {
+  token     : token;  (* token type of the lexeme *)
+  startline : int;    (* Line of the source string the lexeme starts on *)
+  endline   : int;    (* and ends on. Only strings can be multi line *)
+  startpos  : int;    (* in source string, starting position ... *)
+  endpos    : int;    (* ... and ending position of the lexeme. Following
+                           C conventions endpos is after last char *)
+};;
+
+type lexeme_stream = lexeme Queue.t;;
 
 let iswhite = function
   | '\r' | '\n' | '\x0b' | '\x0c' | ' ' | '\t' -> true
@@ -40,7 +44,7 @@ let isspecial = function
   | _ -> false
 ;;
 
-(* Something that looks like a VarSym is actually a start of 1-line comment
+(* Something that looks like a QVarSym is actually a start of 1-line comment
  * if it consists of 2 or more copies of the '-' character. *)
 let is_comment_start s =
   String.length s >= 2 && s = String.make (String.length s) '-'
@@ -77,7 +81,7 @@ let lex program =
      * slurp up the rest of it immediately. *)
     let rec newtok tk =
       (* Check for 1-line comments *)
-      if !curlexeme.token = VarSym &&
+      if !curlexeme.token = QVarSym &&
          is_comment_start (String.sub s
                                       !curlexeme.startpos
                                       (!i - !curlexeme.startpos)) then begin
@@ -164,17 +168,17 @@ let lex program =
           (* Note that digits can appear within varids / conids. Otherwise
            * these arbitrary-length tokens basically end / start whenever the
            * character class changes. *)
-          | (NullToken | VarSym | IntLit), ('_' | 'a' .. 'z') ->
-              newtok VarId
-          | (NullToken | VarSym | IntLit), ('A' .. 'Z') ->
-              newtok ConId
-          | (NullToken | VarId | ConId | IntLit), c when issymb(c) ->
-              newtok VarSym
-          | (NullToken | VarSym), ('0' | '1' .. '9') ->
+          | (NullToken | QVarSym | IntLit), ('_' | 'a' .. 'z') ->
+              newtok QVarId
+          | (NullToken | QVarSym | IntLit), ('A' .. 'Z') ->
+              newtok QConId
+          | (NullToken | QVarId | QConId | IntLit), c when issymb(c) ->
+              newtok QVarSym
+          | (NullToken | QVarSym), ('0' | '1' .. '9') ->
               newtok IntLit
-          | (NullToken | VarId | ConId | VarSym | IntLit), '\'' ->
+          | (NullToken | QVarId | QConId | QVarSym | IntLit), '\'' ->
               newtok CharLit
-          | (NullToken | VarId | ConId | VarSym | IntLit), '"' ->
+          | (NullToken | QVarId | QConId | QVarSym | IntLit), '"' ->
               newtok StringLit
           (* String literals: watch out for escaping and end quotes *)
           | StringLit, '"' -> newtok NullToken
