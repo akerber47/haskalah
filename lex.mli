@@ -8,10 +8,6 @@ type token =
   | CharLit
   | StringLit
   | Special
-  | NullToken     (* These 3 are the "fake" tokens used for lexing that will
-                     not be added to the token queue *)
-  | Comment
-  | BlockComment
 
 type lexeme = {
   token     : token;  (* token type of the lexeme *)
@@ -25,3 +21,5 @@ type lexeme = {
 type lexeme_stream
 
 val lex : string -> lexeme_stream
+
+(* val next_lexeme : lexeme_stream -> lexeme Option.t *)

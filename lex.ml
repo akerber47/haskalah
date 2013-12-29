@@ -12,21 +12,36 @@ type token =
   | CharLit
   | StringLit
   | Special
-  | NullToken     (* These 3 are the "fake" tokens used for lexing that will
-                     not be added to the token queue *)
-  | Comment
-  | BlockComment;;
+;;
 
 type lexeme = {
-  token     : token;  (* token type of the lexeme *)
-  startline : int;    (* Line of the source string the lexeme starts on *)
-  endline   : int;    (* and ends on. Only strings can be multi line *)
-  startpos  : int;    (* in source string, starting position ... *)
-  endpos    : int;    (* ... and ending position of the lexeme. Following
-                           C conventions endpos is after last char *)
+  token     : token;
+  startline : int;
+  endline   : int;
+  startpos  : int;
+  endpos    : int;
 };;
 
-type lexeme_stream = lexeme Queue.t;;
+type lexeme_stream = lexeme Queue.t
+;;
+
+(* let next_lexeme lxs  *)
+
+(* Current internal state of the lexer *)
+type lex_state =
+  | Default
+  | InLexeme * lexeme
+  | InComment
+  | InBlockComment * int (* Depth of nested block comment *)
+;;
+
+(* Keep track of lexer state globally (so can use repeated calls to slurp up an
+ * entire program) *)
+let curline = ref 0
+and curpos = ref 0
+and curstate = ref Default
+and curstream = Queue.create ()
+;;
 
 let iswhite = function
   | '\r' | '\n' | '\x0b' | '\x0c' | ' ' | '\t' -> true
