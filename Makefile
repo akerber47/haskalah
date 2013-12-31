@@ -1,7 +1,7 @@
-all: lex
+all: lex.native
 
-lex: lex.ml
-	ocamlc -o lex lex.ml
+lex.native: lex.ml lex.mli
+	ocamlfind ocamlc -w +a-4-44 -package batteries -linkpkg lex.mli lex.ml -o lex.native
 
 clean:
 	$(RM) lex *.cmi *.cmo
