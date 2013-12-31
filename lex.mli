@@ -14,9 +14,7 @@ type token =
 
 type pretoken =
   | PreQVarId
-  | PreQConId
   | PreQVarSym
-  | PreQConSym
   | PreIntLit
   | PreFloatLit
   | PreCharLit
@@ -50,11 +48,12 @@ val compute_indents : string -> int Array.t
 val compute_line_and_col : string -> int -> int * int
 
 (** Tokenize the input program, ignoring all whitespace and using broad
- * categories of tokens. *)
+ * categories of tokens. All lexing errors detected here. *)
 val prelex : string -> prelexeme Queue.t
 
 (** Converts tokens to their final form, ready for parsing, by further
- * categorizing them and by copying their contents out of the raw string. *)
+ * categorizing them (in particular, identifying reserved words and operators)
+ * and by copying their contents out of the raw string. *)
 val postlex : string -> prelexeme Queue.t -> lexeme Queue.t
 
 (** Use the layout algorithm to insert tokens appropriately for the whitespace
