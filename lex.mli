@@ -9,8 +9,16 @@ type token =
   | FloatLit
   | CharLit
   | StringLit
-  | Special
-  (* TODO, many more token types needed for parsing. *)
+  (* Reserved words *)
+  | RCase | RClass | RData | RDefault | RDeriving | RDo | RElse | RIf | RImport
+  | RIn | RInfix | RInfixl | RInfixr | RInstance | RLet | RModule | RNewtype
+  | ROf | RThen | RType | RWhere | RUnderscore
+  (* Reserved operators *)
+  | RDotDot | RColon | RColonColon | REquals | RBackslash | RPipe | RLArrowDash
+  | RDashRArrow | RAt | RTilde | REqualsRArrow
+  (* Special characters *)
+  | LParen | RParen | LSquare | RSquare | LCurly | RCurly
+  | Comma | Semicolon | Backquote
 
 type pretoken =
   | PreQVarId
