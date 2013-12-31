@@ -238,8 +238,8 @@ let prelex src_string =
       match css,plx.pretoken with
       (* Escape sequences and end characters in chars/strings *)
       | '\\'::cs, (PreCharLit | PreStringLit) -> do_escape (i+1) cs plx
-      | c::_, PreCharLit when islinebreak c ->
-          raise (Lex_error (i, "Unmatched '"))
+      | c::_, (PreCharLit | PreStringLit) when islinebreak c ->
+          raise (Lex_error (i, "Unescaped newline in literal"))
       | '\''::cs, PreCharLit -> begin
         endlexeme {plx with endix = i+1};
         do_nextchar (i+1) cs Default
