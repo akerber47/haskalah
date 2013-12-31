@@ -11,8 +11,16 @@ type token =
   | FloatLit
   | CharLit
   | StringLit
-  | Special
-  (* TODO, many more token types needed for parsing. *)
+  (* Reserved words *)
+  | RCase | RClass | RData | RDefault | RDeriving | RDo | RElse | RIf | RImport
+  | RIn | RInfix | RInfixl | RInfixr | RInstance | RLet | RModule | RNewtype
+  | ROf | RThen | RType | RWhere | RUnderscore
+  (* Reserved operators *)
+  | RDotDot | RColon | RColonColon | REquals | RBackslash | RPipe | RLArrowDash
+  | RDashRArrow | RAt | RTilde | REqualsRArrow
+  (* Special characters *)
+  | LParen | RParen | LSquare | RSquare | LCurly | RCurly
+  | Comma | Semicolon | Backquote
 
 type pretoken =
   | PreQVarId
@@ -129,7 +137,7 @@ let compute_indents s =
 
 let compute_line_and_col s =
   (* Correct for 2-character line breaks. *)
-  let s2 = String.nreplace s "\r\n" "\n" in
+  let s2 = String.nreplace ~str:s ~sub:"\r\n" ~by:"\n" in
   (* Look for all the line breaks ahead of time. This reflects the way we're
    * actually going to call this function. *)
   let linebreak_ixs =
@@ -396,7 +404,108 @@ let prelex src_string =
   do_nextchar 0 src_chars Default
 ;;
 
-let postlex s q = Queue.create ()
+let postlex src prelexemes =
+  let lexemes = Queue.create () in
+  let process plx = begin
+    (* Use indices into source string to copy out lexeme contents *)
+    let (stln, stcl) = compute_line_and_col src plx.startix
+    and cnts = String.slice ~first:plx.startix ~last:plx.endix src in
+    (* Further categorize the token based on lexeme contents *)
+    let tkn = begin
+      match plx.pretoken with
+      | PreSpecial -> begin
+        match cnts with
+        | "(" -> LParen
+        | ")" -> RParen
+        | "[" -> LSquare
+        | "]" -> RSquare
+        | "{" -> LCurly
+        | "}" -> RCurly
+        | "," -> Comma
+        | ";" -> Semicolon
+        | "`" -> Backquote
+        | _ -> assert false (* Only possible PreSpecial contents *)
+      end
+      | PreQVarId -> begin
+        (* Check if this identifier is reserved *)
+        match cnts with
+        | "case"     -> RCase
+        | "class"    -> RClass
+        | "data"     -> RData
+        | "default"  -> RDefault
+        | "deriving" -> RDeriving
+        | "do"       -> RDo
+        | "else"     -> RElse
+        | "if"       -> RIf
+        | "import"   -> RImport
+        | "in"       -> RIn
+        | "infix"    -> RInfix
+        | "infixl"   -> RInfixl
+        | "infixr"   -> RInfixr
+        | "instance" -> RInstance
+        | "let"      -> RLet
+        | "module"   -> RModule
+        | "newtype"  -> RNewtype
+        | "of"       -> ROf
+        | "then"     -> RThen
+        | "type"     -> RType
+        | "where"    -> RWhere
+        | "_"        -> RUnderscore
+        | _ -> begin
+          (* Check if uppercase (varid) or lowercase (conid) after modid *)
+          match cnts.[0] with
+          | '_' | 'a' .. 'z' -> QVarId
+          | 'A' .. 'Z' -> begin
+            if String.contains cnts '.' then
+              match cnts.[1 + String.index cnts '.'] with
+              | '_' | 'a' .. 'z' -> QVarId
+              | 'A' .. 'Z' -> QConId
+              | _ -> assert false (* Only possible starts after modid *)
+            else
+              QConId
+          end
+          | _ -> assert false (* Only possible starts of (qualified) ids *)
+        end
+      end
+      | PreQVarSym -> begin
+        (* Check if operator reserved *)
+        match cnts with
+        | ".." -> RDotDot
+        | ":"  -> RColon
+        | "::" -> RColonColon
+        | "="  -> REquals
+        | "\\" -> RBackslash
+        | "|"  -> RPipe
+        | "<-" -> RLArrowDash
+        | "->" -> RDashRArrow
+        | "@"  -> RAt
+        | "~"  -> RTilde
+        | "=>" -> REqualsRArrow
+        | _ -> begin
+          (* Check if starts with colon (consym) or not (varsym) after modid *)
+          match cnts.[0] with
+          | 'A' .. 'Z' -> begin
+            (* Has to be qualified symbol to start w letter *)
+            assert (String.contains cnts '.');
+            match cnts.[1 + String.index cnts '.'] with
+            | ':' -> QConSym
+            | _ -> QVarSym
+          end
+          | ':' -> QConSym
+          | _ -> QVarSym
+        end
+      end
+      | PreIntLit    -> IntLit
+      | PreFloatLit  -> FloatLit
+      | PreCharLit   -> CharLit
+      | PreStringLit -> StringLit
+    end in
+    Queue.add { token = tkn;
+                contents = cnts;
+                startline = stln;
+                startcol = stcl; } lexemes
+  end in
+  Queue.iter process prelexemes; lexemes
 ;;
 
 let unlayout q a = Queue.create ()
