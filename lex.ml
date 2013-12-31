@@ -382,7 +382,8 @@ let prelex src_string =
     end
   (* To end lexeme, just add it to the queue. *)
   and endlexeme plx = Queue.add plx prelexemes
-  in do_nextchar 0 src_chars Default
+  in
+  do_nextchar 0 src_chars Default
 ;;
 
 let postlex s q = Queue.create ()
