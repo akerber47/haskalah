@@ -328,15 +328,25 @@ let prelex src_string =
     | c::cs -> begin
       match c with
       (* 1 character escape sequences *)
-      | 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' | '\\' | '\'' | '"' | '&'
+      | 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' | '\\' | '\'' | '"'
       (* escaped ascii control characters *)
       | '\x00' .. '\x1f' -> do_nextchar (i+1) cs (InLexeme plx)
       (* Numeric escapes *)
       | 'o' -> escape_while_pred isoctit (i+1) cs plx
       | 'x' -> escape_while_pred ishexit (i+1) cs plx
       | '0' | '1' .. '9' -> escape_while_pred isdigit (i+1) cs plx
+      (* 0 char escape sequence *)
+      | '&' ->
+          if plx.pretoken = PreStringLit then
+            do_nextchar (i+1) cs (InLexeme plx)
+          else
+            raise (Lex_error (i, "'\\&' in character literal"))
       (* Whitespace gaps *)
-      | c when iswhite c -> do_escape_gap (i+1) cs plx
+      | c when iswhite c ->
+          if plx.pretoken = PreStringLit then
+            do_escape_gap (i+1) cs plx
+          else
+            raise (Lex_error (i, "Whitespace gap in character literal"))
       | _ -> begin
         (* Literal ASCII escapes *)
         match css with
