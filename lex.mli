@@ -37,6 +37,7 @@ type lexeme = {
   startline : int;    (* Line of the source string the lexeme starts on (and
                          ends on, unless it's a multiline string literal) *)
   startcol  : int;    (* Column ... *)
+  startix   : int;    (* Starting index in the raw (unsplit) source string *)
 }
 
 type prelexeme = {
@@ -45,9 +46,9 @@ type prelexeme = {
   endix     : int;    (* Ending index, points *after* last char. *)
 }
 
-(** Split the given input program on line breaks, and compute the indent level
- *  of each line. Uses \r\n if found, \r or \n otherwise. *)
-val compute_indents : string -> int Array.t
+(** Compute the indent level of the given character index in the given source
+ * string. Uses same line break conventions, and 8 space, aligned tabs. *)
+val compute_indent : string -> int -> int
 
 (** Given a raw index into a string, computes the corresponding line number and
  * column number (both starting at 1) in the string. If index is an line
@@ -66,6 +67,6 @@ val postlex : string -> prelexeme Queue.t -> lexeme Queue.t
 
 (** Use the layout algorithm to insert tokens appropriately for the whitespace
  * in the original program. After this point we no longer need any whitespace
- * information. Input is the token stream before insertion, and the indent
- * level of each line of the source program. *)
-val unlayout : lexeme Queue.t -> int Array.t -> lexeme Queue.t
+ * information. Input is the token stream before insertion, and an indent
+ * computation function (probably compute_indent, curried). *)
+val unlayout : lexeme Queue.t -> (int -> int) -> lexeme Queue.t
