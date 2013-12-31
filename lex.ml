@@ -253,19 +253,20 @@ let prelex src_string =
           when isdigit c ->
           do_nextchar (i+3) cs (InFloatExp plx.startix)
       (* In these cases, the current token continues. *)
-      | _::cs, (PreCharLit | PreStringLit)
+      | _::cs, (PreCharLit | PreStringLit) ->
+          do_nextchar (i+1) cs (InLexeme plx)
       | c::cs, (PreIntLit | PreFloatLit) when isdigit c ->
           do_nextchar (i+1) cs (InLexeme plx)
-      | c::cs, (PreQVarId | PreQConId) when isnamechar c ->
+      | c::cs, PreQVarId when isnamechar c ->
           do_nextchar (i+1) cs (InLexeme plx)
-      | c::cs, (PreQVarSym | PreQConSym) when issymb c ->
+      | c::cs, PreQVarSym when issymb c ->
           do_nextchar (i+1) cs (InLexeme plx)
       (* In any other case, the current lexeme ends. Rather than actually
        * processing the next character, just end the lexeme and go back to
        * the top for this character. *)
-      | c::cs, _ -> begin
+      | _, _ -> begin
         endtok {plx with endix = i};
-        do_nextchar i ccs Default
+        do_nextchar i css Default
       end
     end
     (* Finally, the weird special cases. *)
@@ -274,17 +275,17 @@ let prelex src_string =
         do_nextchar (i+1) cs (InOctInt n)
     | c::cs, (InHexInt n) when ishexit c ->
         do_nextchar (i+1) cs (InHexInt n)
-    | ccs, (InOctInt n)
-    | ccs, (InHexInt n) -> begin
+    | css, (InOctInt n)
+    | css, (InHexInt n) -> begin
       endtok { pretoken = PreIntLit; startix = n; endix = i };
-      do_nextchar i ccs Default
+      do_nextchar i css Default
     end
     (* Continuation and end of floatexps *)
     | c::cs, (InFloatExp n) when isdigit c ->
         do_nextchar (i+1) cs (InFloatExp n)
-    | ccs, (InFloatExp n) -> begin
+    | css, (InFloatExp n) -> begin
       endtok { pretoken = PreFloatLit; startix = n; endix = i };
-      do_nextchar i ccs Default
+      do_nextchar i css Default
     end
     (* Continuation and end / conversion of modids *)
     | c::cs, (InModId n) when isnamechar c ->
@@ -295,9 +296,9 @@ let prelex src_string =
     | '.'::(c::cs), (InModId n) when islower c || isupper c ->
         do_nextchar (i+2) cs (InLexeme
         { pretoken = PreQVarId, startix = n, endix = -1 })
-    | ccs, (InModId n) -> begin
+    | css, (InModId n) -> begin
       endtok { pretoken = PreQVarId, startix = n, endix = i };
-      do_nextchar i ccs Default
+      do_nextchar i css Default
     end
   and endlexeme _ = ()
   in do_nextchar 0 src_chars Default
