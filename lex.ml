@@ -235,6 +235,8 @@ let prelex src_string =
       match css,plx.pretoken with
       (* Escape sequences and end characters in chars/strings *)
       | '\\'::cs, (PreCharLit | PreStringLit) -> do_escape (i+1) cs plx
+      | c::cs, PreCharLit where islinebreak c ->
+          raise (Lex_error (i, "Unmatched '"))
       | '\''::cs, PreCharLit -> begin
         endtok {plx with endix = i+1};
         do_nextchar (i+1) cs Default
@@ -296,11 +298,86 @@ let prelex src_string =
     | '.'::(c::cs), (InModId n) when islower c || isupper c ->
         do_nextchar (i+2) cs (InLexeme
         { pretoken = PreQVarId, startix = n, endix = -1 })
+    (* ModId which doesn't qualify a name is really a PreQVarId *)
     | css, (InModId n) -> begin
       endtok { pretoken = PreQVarId, startix = n, endix = i };
       do_nextchar i css Default
     end
-  and endlexeme _ = ()
+  (* do_escape : int -> char list -> prelexeme -> prelexeme Queue.t
+   * Calls to/from do_nextchar mutually recursively. Processes escape sequences
+   * in character / string literals. The given char list starts with the first
+   * character *after* the backslash that begins the escape sequence. *)
+  and do_escape i css plx =
+    let rec do_escape_gap i css plx =
+      match css with
+      | [] -> raise (Lex_error (i, "Unmatched \""))
+      | '\'::cs -> do_nextchar (i+1) cs plx
+      | c::cs when iswhite c -> do_escape_gap (i+1) cs plx
+      | _ -> raise (Lex_error (i, "Non-whitespace character in gap"))
+    and escape_while_pred pred i css plx =
+      match css with
+      | [] -> raise (Lex_error (i, "Unmatched \""))
+      | c::cs when pred c -> escape_while_pred pred (i+1) cs plx
+      | css -> do_nextchar i css plx
+    match css with
+    | [] -> raise (Lex_error (i, "Unterminated escape sequence"))
+    | c::cs -> begin
+      match c with
+      (* 1 character escape sequences *)
+      | 'a' | 'b' | 'f' | 'n' | 'r' | 't' | 'v' | '\' | '\'' | '"' | '&'
+      (* escaped ascii control characters *)
+      | '\x00' .. '\x1f' -> do_nextchar (i+1) cs (InLexeme plx)
+      (* Numeric escapes *)
+      | 'o' -> escape_while_pred isoctit (i+1) cs plx
+      | 'x' -> escape_while_pred ishexit (i+1) cs plx
+      | '0' | '1' .. '9' -> escape_while_pred isdigit (i+1) cs plx
+      (* Whitespace gaps *)
+      | c when iswhite c -> do_escape_gap (i+1) cs plx
+      | _ -> begin
+        (* Literal ASCII escapes *)
+        match css with
+        (* 3 letters *)
+        | 'N'::('U'::('L'::cs))
+        | 'S'::('O'::('H'::cs))
+        | 'S'::('T'::('X'::cs))
+        | 'E'::('T'::('X'::cs))
+        | 'E'::('O'::('T'::cs))
+        | 'E'::('N'::('Q'::cs))
+        | 'A'::('C'::('K'::cs))
+        | 'B'::('E'::('L'::cs))
+        | 'D'::('L'::('E'::cs))
+        | 'D'::('C'::('1'::cs))
+        | 'D'::('C'::('2'::cs))
+        | 'D'::('C'::('3'::cs))
+        | 'D'::('C'::('4'::cs))
+        | 'N'::('A'::('K'::cs))
+        | 'S'::('Y'::('N'::cs))
+        | 'E'::('T'::('B'::cs))
+        | 'C'::('A'::('N'::cs))
+        | 'S'::('U'::('B'::cs))
+        | 'E'::('S'::('C'::cs))
+        | 'D'::('E'::('L'::cs)) ->
+            do_nextchar (i+3) cs (InLexeme plx)
+        (* 2 letters *)
+        | 'B'::('S'::cs)
+        | 'H'::('T'::cs)
+        | 'L'::('F'::cs)
+        | 'V'::('T'::cs)
+        | 'F'::('F'::cs)
+        | 'C'::('R'::cs)
+        | 'S'::('O'::cs)
+        | 'S'::('I'::cs)
+        | 'F'::('S'::cs)
+        | 'G'::('S'::cs)
+        | 'R'::('S'::cs)
+        | 'U'::('S'::cs)
+        | 'S'::('P'::cs) ->
+            do_nextchar (i+2) cs (InLexeme plx)
+        | _ -> raise (Lex_error (i, "Invalid escape sequence"))
+      end
+    end
+  (* To end lexeme, just add it to the queue. *)
+  and endlexeme = Queue.enqueue prelexemes
   in do_nextchar 0 src_chars Default
 ;;
 
