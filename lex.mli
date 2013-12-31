@@ -50,6 +50,10 @@ type prelexeme = {
  * string. Uses same line break conventions, and 8 space, aligned tabs. *)
 val compute_indent : string -> int -> int
 
+(** Determines whether the given character is the first non-whitespace
+ * character on its line. *)
+val is_first_non_white : string -> int -> bool
+
 (** Given a raw index into a string, computes the corresponding line number and
  * column number (both starting at 1) in the string. If index is an line
  * breaking character, return the line number before the break, and a column
@@ -67,6 +71,8 @@ val postlex : string -> prelexeme Queue.t -> lexeme Queue.t
 
 (** Use the layout algorithm to insert tokens appropriately for the whitespace
  * in the original program. After this point we no longer need any whitespace
- * information. Input is the token stream before insertion, and an indent
- * computation function (probably compute_indent, curried). *)
-val unlayout : lexeme Queue.t -> (int -> int) -> lexeme Queue.t
+ * information. Input is the token stream before insertion, an indent
+ * computation function (probably compute_indent, curried), and a start-of-line
+ * computation function (probably is_first_non_white, curried). *)
+val unlayout : lexeme Queue.t -> (int -> int) ->
+  (int -> bool) -> lexeme Queue.t

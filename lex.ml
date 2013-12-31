@@ -39,6 +39,7 @@ type lexeme = {
   startline : int;    (* Line of the source string the lexeme starts on (and
                          ends on, unless it's a multiline string literal) *)
   startcol  : int;    (* Column ... *)
+  startix   : int;    (* Starting index in the raw (unsplit) source string *)
 }
 
 type prelexeme = {
@@ -109,30 +110,40 @@ let rec has_comment_start = function
   | c::_ -> not (issymb c)
 ;;
 
-let compute_indents s =
-  (* Note that we slightly violate the specification, in that technically the
-   * indent should be the indented position of the first lexeme, but if the
-   * line contains a block comment before the first lexeme we return the
-   * starting position of the block comment.
-   * (We do the same for line comments, but it's irrelevant since if we hit
-   * a line comment there cannot be any lexemes on this line anyways)
-   * But this way makes more sense anyways, for anyone actually reading the
-   * code. Screw it. *)
-  let compute_indent line =
-    let rec loop i ind =
-      if i < String.length line then
-        match line.[i] with
-        (* Vertical tabs count as 1 white char *)
-        | '\x0b'
-        | ' '  -> loop (i+1) (ind+1)
-        (* Tabs align to next tap stop (multiples of 8 spaces) *)
-        | '\t' -> loop (i+1) (8*(ind / 8)+8)
-        | _    -> ind
+(* Little helper function to compute line break indices in strings. *)
+let linebreak_ixs s =
+  let rec loop i =
+    if i < String.length s then
+      if islinebreak s.[i] then
+        i :: loop (i+1)
       else
-        ind
-    in loop 0 0
-  and lines = Str.split (Str.regexp "\\(\r\n\\)\\|[\r\n\x0c]") s
-  in Array.of_list (List.map compute_indent lines)
+        loop (i+1)
+    else
+      []
+  in loop 0
+;;
+
+(* Count the column width of a 1-line string, using 8-space aligned tabs. *)
+let countwidth s =
+  let do_nextchar c i =
+    match c with
+    | '\t' -> 8*(i / 8) + 8
+    | _ -> i+1
+  in String.fold_left do_nextchar 0 s
+
+let compute_indent s =
+  (* Correct for 2-character line breaks. *)
+  let s2 = String.nreplace ~str:s ~sub:"\r\n" ~by:"\n" in
+  (* Look for all the line breaks ahead of time. This reflects the way we're
+   * actually going to call this function. *)
+  let lbixs = linebreak_ixs s2 in
+  fun ix ->
+    (* Find the last line break before ix, and count from there. *)
+    let rec loop lastlb lbs =
+      match lbs with
+      | n::ns when ix > n -> loop n ns
+      | _ -> countwidth (String.slice ~from:(lastlb+1) ~to:(ix+1) s2)
+    in loop (-1) lbixs
 ;;
 
 let compute_line_and_col s =
@@ -140,22 +151,15 @@ let compute_line_and_col s =
   let s2 = String.nreplace ~str:s ~sub:"\r\n" ~by:"\n" in
   (* Look for all the line breaks ahead of time. This reflects the way we're
    * actually going to call this function. *)
-  let linebreak_ixs =
-    let rec loop i =
-      if i < String.length s2 then
-        if islinebreak s2.[i] then
-          i :: loop (i+1)
-        else
-          loop (i+1)
-      else
-        []
-    in loop 0
-  in fun ix ->
-    let rec loop line lastlb lbixs =
-      match lbixs with
+  let lbixs = linebreak_ixs s2 in
+  fun ix ->
+    (* Find the last line break before ix, keeping track of how many line
+     * breaks we have to look through. *)
+    let rec loop line lastlb lbs =
+      match lbs with
       | n::ns when ix > n -> loop (line+1) n ns
       | _                 -> (line, ix-lastlb)
-    in loop 1 (-1) linebreak_ixs
+    in loop 1 (-1) lbixs
 ;;
 
 (* Current internal state of the lexer *)
@@ -404,9 +408,10 @@ let prelex src_string =
   do_nextchar 0 src_chars Default
 ;;
 
+(* prelexemes to lexemes is 1-1 stream conversion *)
 let postlex src prelexemes =
   let lexemes = Queue.create () in
-  let process plx = begin
+  let do_nextplx plx = begin
     (* Use indices into source string to copy out lexeme contents *)
     let (stln, stcl) = compute_line_and_col src plx.startix
     and cnts = String.slice ~first:plx.startix ~last:plx.endix src in
@@ -503,10 +508,38 @@ let postlex src prelexemes =
     Queue.add { token = tkn;
                 contents = cnts;
                 startline = stln;
-                startcol = stcl; } lexemes
+                startcol = stcl;
+                startix = plx.startix } lexemes
   end in
-  Queue.iter process prelexemes; lexemes
+  Queue.iter do_nextplx prelexemes; lexemes
 ;;
 
-let unlayout q a = Queue.create ()
+type lexeme_or_indent =
+  | SomeLexeme * lexeme
+  | IndentBlock * int (* {n} in specification *)
+  | IndentLine * int (* <n> in specification *)
+let unlayout lexemes_orig indent_f =
+  let lexemes = Queue.copy lexemes_orig (* Don't modify input argument *)
+  and lexemes_indents = Queue.create ()
+  and final_lexemes = Queue.create ()
+  and lastln = ref 0 in begin
+    while not Queue.is_empty lexemes do begin
+      let lx = Queue.take lexemes in
+      match lx.token with
+      (* Rule #1: Add IndentBlock after appropriate keywords *)
+      | RLet
+      | RWhere
+      | RDo
+      | ROf -> begin
+        if Queue.is_empty lexemes ||
+          (Queue.peek lexemes).token <> LCurly then begin
+            Queue.add (SomeLexeme lx) inter_lexemes;
+            let nextlx = Queue.take lexemes in
+            Queue.add (IndentBlock (indent_f nextlx.startix)) inter_lexemes
+            (* Process next lexeme immediately for special case of Rule #3 *)
+            lastln := nextlx.startline
+            Queue.add (SomeLexeme nextlx)
+      end
+      | _ -> ();
+      (* Rule #3: Add IndentLine before 1st token on line *)
 ;;
