@@ -615,6 +615,7 @@ let unlayout lexemes_orig indent_f start_f =
         | (IndentBlock n), [] when n > 0 -> begin
           add_implicit_L ();
           loop n::[]
+        end
         (* Note 1 contradicts Note 2, but Note 2 matches the explanatory text
          * in Report section 2.7, so let's go with that. *)
         (* Note 2 *)
@@ -629,6 +630,7 @@ let unlayout lexemes_orig indent_f start_f =
             | LCurly, ms -> begin
               Queue.add lx final_lexemes;
               loop 0::ms
+            end
             (* } ends explicit (0 width) layout context *)
             | RCurly, 0::ms -> begin
               Queue.add lx final_lexemes;
