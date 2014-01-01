@@ -39,7 +39,7 @@ type lexeme = {
   startline : int;    (* Line of the source string the lexeme starts on (and
                          ends on, unless it's a multiline string literal) *)
   startcol  : int;    (* Column ... *)
-  startix   : int;    (* Starting index in the raw (unsplit) source string *)
+  startraw  : int;    (* Starting index in the raw (unsplit) source string *)
 }
 
 type prelexeme = {
@@ -125,7 +125,7 @@ let linebreak_ixs s =
 
 (* Count the column width of a 1-line string, using 8-space aligned tabs. *)
 let countwidth s =
-  let do_nextchar c i =
+  let do_nextchar i c =
     match c with
     | '\t' -> 8*(i / 8) + 8
     | _ -> i+1
@@ -142,7 +142,7 @@ let compute_indent s =
     let rec loop lastlb lbs =
       match lbs with
       | n::ns when ix > n -> loop n ns
-      | _ -> countwidth (String.slice ~from:(lastlb+1) ~to:(ix+1) s2)
+      | _ -> countwidth (String.slice ~first:(lastlb+1) ~last:(ix+1) s2)
     in loop (-1) lbixs
 ;;
 
@@ -509,21 +509,28 @@ let postlex src prelexemes =
                 contents = cnts;
                 startline = stln;
                 startcol = stcl;
-                startix = plx.startix } lexemes
+                startraw = plx.startix } lexemes
   end in
   Queue.iter do_nextplx prelexemes; lexemes
 ;;
 
 type lexeme_or_indent =
-  | SomeLexeme * lexeme
-  | IndentBlock * int (* {n} in specification *)
-  | IndentLine * int (* <n> in specification *)
-let unlayout lexemes_orig indent_f =
+  | SomeLexeme of lexeme
+  | IndentBlock of int (* {n} in specification *)
+  | IndentLine of int (* <n> in specification *)
+let unlayout lexemes_orig indent_f start_f =
   let lexemes = Queue.copy lexemes_orig (* Don't modify input argument *)
-  and lexemes_indents = Queue.create ()
+  and inter_lxs = Queue.create () (* Intermediate queue for layout algo *)
   and final_lexemes = Queue.create ()
-  and lastln = ref 0 in begin
-    while not Queue.is_empty lexemes do begin
+  and lastln = ref 0
+  in begin
+    (* Rule #2: Add IndentBlock at start of file *)
+    if (not (Queue.is_empty lexemes)) &&
+       (Queue.peek lexemes).token <> LCurly &&
+       (Queue.peek lexemes).token <> RModule then
+      Queue.add (IndentBlock (indent_f (Queue.peek lexemes).startraw))
+                inter_lxs;
+    while not Queue.is_empty lexemes do
       let lx = Queue.take lexemes in
       match lx.token with
       (* Rule #1: Add IndentBlock after appropriate keywords *)
@@ -532,14 +539,47 @@ let unlayout lexemes_orig indent_f =
       | RDo
       | ROf -> begin
         if Queue.is_empty lexemes ||
-          (Queue.peek lexemes).token <> LCurly then begin
-            Queue.add (SomeLexeme lx) inter_lexemes;
+           (Queue.peek lexemes).token <> LCurly then begin
+            Queue.add (SomeLexeme lx) inter_lxs;
             let nextlx = Queue.take lexemes in
-            Queue.add (IndentBlock (indent_f nextlx.startix)) inter_lexemes
+            Queue.add (IndentBlock (indent_f nextlx.startraw)) inter_lxs
             (* Process next lexeme immediately for special case of Rule #3 *)
             lastln := nextlx.startline
             Queue.add (SomeLexeme nextlx)
+        end
       end
       | _ -> ();
       (* Rule #3: Add IndentLine before 1st token on line *)
+      if start_f lx.startraw then
+        Queue.add (IndentLine (indent_f lx.startraw)) inter_lxs;
+      Queue.add (SomeLexeme lx) inter_lxs
+    done;
+    (* inter_lxs contains input to translation L (in Report sec 9.3). Now apply
+     * translation L to get the queue to return. *)
+    (* Helper functions *)
+    let add_implicit_L () =
+      Queue.add { token = LCurly;
+                  startline = -1;
+                  startcol = -1;
+                  startraw = -1; } final_lexemes
+    and add_implicit_R () =
+      Queue.add { token = LCurly;
+                  startline = -1;
+                  startcol = -1;
+                  startraw = -1; } final_lexemes
+    (* Loop through input queue, passing along layout context. *)
+    in let loop layout_ctx =
+      if Queue.is_empty inter_lxs then
+        match layout_ctx with
+        | [] -> ()
+        | m::ms -> begin
+          if m = 0 then
+            raise (Lex_error (-1, "Unmatched {")) (* Note 6 *)
+          else
+            add_implicit_R ();
+          loop ms
+      else
+        let ilx = Queue.take inter_lxs (* ... *)
+
+  end
 ;;

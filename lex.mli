@@ -37,7 +37,7 @@ type lexeme = {
   startline : int;    (* Line of the source string the lexeme starts on (and
                          ends on, unless it's a multiline string literal) *)
   startcol  : int;    (* Column ... *)
-  startix   : int;    (* Starting index in the raw (unsplit) source string *)
+  startraw  : int;    (* Starting index in the raw (unsplit) source string *)
 }
 
 type prelexeme = {
