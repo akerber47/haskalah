@@ -320,7 +320,8 @@ let prelex src_string =
     (* Note that we allow qualified reserved ids and operators, contradicting
      * the specification. See
      * https://ghc.haskell.org/trac/haskell-prime/wiki/QualifiedIdentifiers
-     * for why the spec is probably a bad idea anyway ('M.wher' 'e' ???). *)
+     * for why the spec is probably a bad idea anyway ('M.wher' 'e' ???). We do
+     * NOT alow Haskell 2010 Hierarchical Modules (yet!). *)
     | c::cs, (InModId n) when isnamechar c ->
         do_nextchar (i+1) cs (InModId n)
     | '.'::(c::cs), (InModId n) when issymb c ->
