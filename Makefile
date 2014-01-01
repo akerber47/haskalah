@@ -9,9 +9,9 @@ all: $(TARGETS)
 
 # Link the targets into a nicer place
 haskalah: src/main.native
-	ln -s _build/$< $@
+	ln -sf _build/$< $@
 haskalah-test: test/main.native
-	ln -s _build/$< $@
+	ln -sf _build/$< $@
 
 # Make ocamlbuild do all the actual dependency generation / checks etc
 $(OCAML_TARGETS):
