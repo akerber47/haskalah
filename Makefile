@@ -1,12 +1,22 @@
-all: lex.native test_lex.native
+TARGETS = haskalah-test haskalah
+OCAML_TARGETS = src/main.native test/main.native
+OCAMLBUILD_FLAGS = -use-ocamlfind -classic-display -no-links
+OCAMLBUILD_FLAGS += -Is src,test -cflags -strict-sequence,'-w +a-4-44',-g
+OCAMLBUILD_FLAGS += -tags 'package(batteries)','package(oUnit)'
 
-lex.native: lex.ml lex.mli
-	ocamlfind ocamlc -w +a-4-44 -package batteries -linkpkg lex.mli lex.ml -o lex.native
+.PHONY: all clean $(OCAML_TARGETS)
+all: $(TARGETS)
 
-test_lex.native: lex.ml lex.mli test/test_lex.ml
-	ocamlfind ocamlc -w +a-4-44 -package batteries -package oUnit -linkpkg lex.mli lex.ml test/test_lex.ml -o test_lex.native
+# Link the targets into a nicer place
+haskalah: src/main.native
+	ln -s _build/$< $@
+haskalah-test: test/main.native
+	ln -s _build/$< $@
+
+# Make ocamlbuild do all the actual dependency generation / checks etc
+$(OCAML_TARGETS):
+	ocamlbuild $(OCAMLBUILD_FLAGS) $@
 
 clean:
-	$(RM) *.cmi *.cmo *.native
-	cd test && $(RM) *.cmi *.cmo *.native
-
+	$(RM) $(TARGETS)
+	ocamlbuild -clean -classic-display

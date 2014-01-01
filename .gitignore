@@ -1,9 +1,11 @@
 # normal build output
 _build
-*.cmi
-*.cmo
-*.o
+haskalah
+haskalah-test
 *.native
+*.byte
+*.d.native
+*.p.byte
 
 # editor temporary files
 \#*\#
