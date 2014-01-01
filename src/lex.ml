@@ -105,7 +105,9 @@ let isspecial = function
  * start of a line comment if it does NOT form a larger symbol, i.e., it has no
  * other symbol characters than '-' at its immediate start. Note that we follow
  * https://ghc.haskell.org/trac/haskell-prime/wiki/LineCommentSyntax
- * and make ':' into a symbol (so --: does not start a comment). *)
+ * and make ':' into a symbol (so --: does not start a comment). This change is
+ * in fact incorporated into the errata, see
+ * http://www.haskell.org/definition/haskell98-revised-bugs.html *)
 let rec has_comment_start = function
   | [] -> true
   | '-'::cs -> has_comment_start cs
@@ -315,6 +317,10 @@ let prelex src_string =
       do_nextchar i css Default
     end
     (* Continuation and end / conversion of modids *)
+    (* Note that we allow qualified reserved ids and operators, contradicting
+     * the specification. See
+     * https://ghc.haskell.org/trac/haskell-prime/wiki/QualifiedIdentifiers
+     * for why the spec is probably a bad idea anyway ('M.wher' 'e' ???). *)
     | c::cs, (InModId n) when isnamechar c ->
         do_nextchar (i+1) cs (InModId n)
     | '.'::(c::cs), (InModId n) when issymb c ->
