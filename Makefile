@@ -1,19 +1,19 @@
 TARGETS = haskalah-test haskalah
 OCAML_TARGETS = src/main.native test/main.native
-OCAMLBUILD_FLAGS = -use-ocamlfind -classic-display
-OCAMLBUILD_FLAGS += -Is src,test -cflags -strict-sequence,-w+a-4-44,-g
-OCAMLBUILD_FLAGS += -libs batteries,oUnit
+OCAMLBUILD_FLAGS = -use-ocamlfind -classic-display -no-links
+OCAMLBUILD_FLAGS += -Is src,test -cflags -strict-sequence,'-w +a-4-44',-g
+OCAMLBUILD_FLAGS += -tags 'package(batteries)','package(oUnit)'
 
-.PHONY: all clean
+.PHONY: all clean $(OCAML_TARGETS)
 all: $(TARGETS)
 
-# Copy the targets into a nicer place
+# Link the targets into a nicer place
 haskalah: src/main.native
-	cp -f --preserve=links $@ $<
+	ln -s _build/$< $@
 haskalah-test: test/main.native
-	cp -f --preserve=links $@ $<
+	ln -s _build/$< $@
 
-# Make ocamlbuild do all the actual dependency generation etc
+# Make ocamlbuild do all the actual dependency generation / checks etc
 $(OCAML_TARGETS):
 	ocamlbuild $(OCAMLBUILD_FLAGS) $@
 
