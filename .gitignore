@@ -1,9 +1,9 @@
 # normal build output
 _build
-*.cmi
-*.cmo
-*.o
-*.native
+haskalah
+haskalah-test
+src/main.native
+test/main.native
 
 # editor temporary files
 \#*\#
