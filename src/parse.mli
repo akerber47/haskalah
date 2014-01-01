@@ -3,6 +3,10 @@ open Batteries
 (* Build an abstract syntax tree for the given stream of lexemes. *)
 val parse_ast : Lex.lexeme Queue.t -> ast
 
+(* Abstract syntax tree for Haskell 98. Copy of large chunks of Ch 3 of the
+ * Report. *)
+(* TODO... *)
+
 (* Nonterminal symbols in the Haskell 98 grammar. Long, ugly verbatim copy of
  * section 9.5 of the Report. Note that we implement
  * https://ghc.haskell.org/trac/haskell-prime/wiki/FixityResolution ie resolve

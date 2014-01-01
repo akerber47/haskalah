@@ -12,14 +12,14 @@ type production = {
   rhs : symbol list;
   (* Semantic action to be applied to the list of return values of the
    * semantic actions of the terms of rhs. *)
-  action : (Parse.cst list -> Parse.cst);
+  action : (Parse.ast list -> Parse.ast);
 }
 
 type grammar = {
   productions : production list;
   (* Semantic action to be applied when matching any terminal symbol. Taken as
    * input the matched lexeme (to extract its contents, line/col #s, etc. *)
-  terminal_action : (Lex.lexeme -> Parse.cst);
+  terminal_action : (Lex.lexeme -> Parse.ast);
 }
 
-val generate : grammar -> Lex.lexeme Queue.t -> Parse.cst
+val generate : grammar -> Lex.lexeme Queue.t -> Parse.ast
