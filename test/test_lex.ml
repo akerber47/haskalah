@@ -13,9 +13,9 @@ let assert_eqtoks toklist src =
                          (List.of_enum (Queue.enum (Lex.prelex src))))
 ;;
 
-let test1 ctxt = assert_eqtoks [] "";;
+let test1 _ = assert_eqtoks [] "";;
 
-let test2 ctxt = assert_eqtoks [Lex.PreQVarId ; Lex.PreSpecial] "x(";;
+let test2 _ = assert_eqtoks [Lex.PreQVarId ; Lex.PreSpecial] "x(";;
 
 (* Name the test cases and group them together *)
 let suite =
@@ -24,6 +24,6 @@ let suite =
        "test2">:: test2]
 ;;
 
-let () =
-  run_test_tt_main suite; ()
+let run_all () =
+  run_test_tt_main suite
 ;;

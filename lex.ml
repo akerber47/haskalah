@@ -585,9 +585,6 @@ let unlayout lexemes_orig indent_f start_f =
                   startline = -1;
                   startcol = -1;
                   startraw = -1; } final_lexemes
-    (* Keep track of last line read for error reporting purposes. This won't
-     * give us perfect line numbers for errors, but they're ok. *)
-    and lastln = ref 0
     (* Loop through input queue, passing along layout context. Straight-up
      * implementation of patterns for transformation L. *)
     in
@@ -609,12 +606,12 @@ let unlayout lexemes_orig indent_f start_f =
         (* Start of new layout block *)
         | (IndentBlock n), m::ms when n > m -> begin
           add_implicit_L ();
-          loop n::(m::ms);
+          loop (n::(m::ms));
         end
         (* Start of new (top level) layout block *)
         | (IndentBlock n), [] when n > 0 -> begin
           add_implicit_L ();
-          loop n::[]
+          loop (n::[])
         end
         (* Note 1 contradicts Note 2, but Note 2 matches the explanatory text
          * in Report section 2.7, so let's go with that. *)
@@ -629,7 +626,7 @@ let unlayout lexemes_orig indent_f start_f =
             (* { starts explicit (0 width) layout context *)
             | LCurly, ms -> begin
               Queue.add lx final_lexemes;
-              loop 0::ms
+              loop (0::ms)
             end
             (* } ends explicit (0 width) layout context *)
             | RCurly, 0::ms -> begin
