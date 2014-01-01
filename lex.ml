@@ -130,21 +130,29 @@ let countwidth s =
     | '\t' -> 8*(i / 8) + 8
     | _ -> i+1
   in String.fold_left do_nextchar 0 s
+;;
 
-let compute_indent s =
+(* Return the characters on the same line as the given index, but before it. *)
+let line_prefix s ix =
   (* Correct for 2-character line breaks. *)
   let s2 = String.nreplace ~str:s ~sub:"\r\n" ~by:"\n" in
-  (* Look for all the line breaks ahead of time. This reflects the way we're
-   * actually going to call this function. *)
-  let lbixs = linebreak_ixs s2 in
-  fun ix ->
-    (* Find the last line break before ix, and count from there. *)
-    let rec loop lastlb lbs =
-      match lbs with
-      | n::ns when ix > n -> loop n ns
-      | _ -> countwidth (String.slice ~first:(lastlb+1) ~last:(ix+1) s2)
-    in loop (-1) lbixs
+  (* Find the last line break before ix, and count from there. *)
+  let rec loop lastlb lbs =
+    match lbs with
+    | n::ns when ix > n -> loop n ns
+    | _ -> (String.slice ~first:(lastlb+1) ~last:(ix) s2)
+  in loop (-1) (linebreak_ixs s2)
 ;;
+
+let compute_indent s ix =
+  1 + countwidth (line_prefix s ix)
+;;
+
+(* This doesn't handle whitespace not made up of whitechars (eg block
+ * comments) BUT anyone who uses a block comment inside where the indent
+ * whitespace should be deserves what's coming to them. *)
+let is_first_non_white s ix =
+  List.for_all iswhite (String.explode (line_prefix s ix))
 
 let compute_line_and_col s =
   (* Correct for 2-character line breaks. *)
@@ -530,7 +538,7 @@ let unlayout lexemes_orig indent_f start_f =
        (Queue.peek lexemes).token <> RModule then
       Queue.add (IndentBlock (indent_f (Queue.peek lexemes).startraw))
                 inter_lxs;
-    while not Queue.is_empty lexemes do
+    while not (Queue.is_empty lexemes) do
       let lx = Queue.take lexemes in
       match lx.token with
       (* Rule #1: Add IndentBlock after appropriate keywords *)
@@ -541,11 +549,13 @@ let unlayout lexemes_orig indent_f start_f =
         if Queue.is_empty lexemes ||
            (Queue.peek lexemes).token <> LCurly then begin
             Queue.add (SomeLexeme lx) inter_lxs;
-            let nextlx = Queue.take lexemes in
-            Queue.add (IndentBlock (indent_f nextlx.startraw)) inter_lxs
-            (* Process next lexeme immediately for special case of Rule #3 *)
-            lastln := nextlx.startline
-            Queue.add (SomeLexeme nextlx)
+            let nextlx = Queue.take lexemes
+            in begin
+              Queue.add (IndentBlock (indent_f nextlx.startraw)) inter_lxs;
+              (* Process next lexeme immediately for special case of Rule #3 *)
+              lastln := nextlx.startline;
+              Queue.add (SomeLexeme nextlx) inter_lxs;
+            end
         end
       end
       | _ -> ();
@@ -555,20 +565,33 @@ let unlayout lexemes_orig indent_f start_f =
       Queue.add (SomeLexeme lx) inter_lxs
     done;
     (* inter_lxs contains input to translation L (in Report sec 9.3). Now apply
-     * translation L to get the queue to return. *)
+     * translation L, yielding final queue to return. *)
     (* Helper functions *)
     let add_implicit_L () =
       Queue.add { token = LCurly;
+                  contents = "{";
                   startline = -1;
                   startcol = -1;
                   startraw = -1; } final_lexemes
     and add_implicit_R () =
-      Queue.add { token = LCurly;
+      Queue.add { token = RCurly;
+                  contents = "}";
                   startline = -1;
                   startcol = -1;
                   startraw = -1; } final_lexemes
-    (* Loop through input queue, passing along layout context. *)
-    in let loop layout_ctx =
+    and add_implicit_semi () =
+      Queue.add { token = Semicolon;
+                  contents = ";";
+                  startline = -1;
+                  startcol = -1;
+                  startraw = -1; } final_lexemes
+    (* Keep track of last line read for error reporting purposes. This won't
+     * give us perfect line numbers for errors, but they're ok. *)
+    and lastln = ref 0
+    (* Loop through input queue, passing along layout context. Straight-up
+     * implementation of patterns for transformation L. *)
+    in
+    let rec loop layout_ctx =
       if Queue.is_empty inter_lxs then
         match layout_ctx with
         | [] -> ()
@@ -578,8 +601,88 @@ let unlayout lexemes_orig indent_f start_f =
           else
             add_implicit_R ();
           loop ms
+        end
       else
-        let ilx = Queue.take inter_lxs (* ... *)
-
+        let ilx = Queue.take inter_lxs in
+        match (ilx,layout_ctx) with
+        | (IndentLine n), ms -> do_indentline n ms
+        (* Start of new layout block *)
+        | (IndentBlock n), m::ms when n > m -> begin
+          add_implicit_L ();
+          loop n::(m::ms);
+        end
+        (* Start of new (top level) layout block *)
+        | (IndentBlock n), [] when n > 0 -> begin
+          add_implicit_L ();
+          loop n::[]
+        (* Note 1 contradicts Note 2, but Note 2 matches the explanatory text
+         * in Report section 2.7, so let's go with that. *)
+        (* Note 2 *)
+        | (IndentBlock n), ms -> begin
+          add_implicit_L ();
+          add_implicit_R ();
+          do_indentline n ms
+        end
+        | (SomeLexeme lx), mss ->
+            match (lx.token,mss) with
+            (* { starts explicit (0 width) layout context *)
+            | LCurly, ms -> begin
+              Queue.add lx final_lexemes;
+              loop 0::ms
+            (* } ends explicit (0 width) layout context *)
+            | RCurly, 0::ms -> begin
+              Queue.add lx final_lexemes;
+              loop ms
+            end
+            (* Note 3 *)
+            | RCurly, _ -> raise (Lex_error (lx.startline, "Unmatched }"))
+            (* Otherwise, just move the lexeme along. *)
+            (* Note that we IGNORE Note 5, because it will tangle our parser
+             * and lexer up horribly. So implicit closing braces are only
+             * added when indent level decreases. The only serious change this
+             * makes to the language is it prevents us from putting "in" on
+             * the same line as "let" conditions, eg
+             * > let x = 1 in
+             * >   foo x
+             * will be converted to
+             * > let {x = 1 in
+             * >   }foo x
+             * and will not parse. To avoid this, write
+             * > let x = 1
+             * > in
+             * >   foo x
+             * or
+             * > let x = 1
+             * > in foo x
+             * All other clauses (where, do, of) do not have this problem as
+             * in standard Haskell style they're ended by a line break, not a
+             * keyword, so this shouldn't be an issue.
+             * (Yes, these alternatives are ugly, but seriously? Fall back to
+             * inserting tokens on a PARSE ERROR? Are you nuts?) *)
+            | _, ms -> begin
+              Queue.add lx final_lexemes;
+              loop ms
+            end
+    (* Stupid helper function, to deal with some messy recursion (for when the
+     * same IndentLine ends multiple layout contexts. *)
+    and do_indentline n mss =
+      match mss with
+      | m::ms when n = m -> begin
+        add_implicit_semi ();
+        loop ms
+      end
+      (* Indent level decreases, end of layout block. Loop back on same token
+       * in case multiple layout blocks end here. *)
+      | m::ms when n < m -> begin
+        add_implicit_R ();
+        do_indentline n (m::ms)
+      end
+      (* Indent level increases (but not at start of layout block), so
+       * this is line continuation, just keep going. Note that since this can
+       * appear inside recursive call to do_indent, we can in fact have a
+       * continuation that contains a block in it (YUCK!) *)
+      | ms -> loop ms
+    in loop [];
+    final_lexemes
   end
 ;;
