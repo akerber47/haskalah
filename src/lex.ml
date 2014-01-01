@@ -101,9 +101,11 @@ let isspecial = function
   | _ -> false
 ;;
 
-(* List of characters is acceptable thing to appear after "--" to make the start
- * of a line comment if it does NOT form a larger symbol, i.e., it has
- * no other symbol characters than '-' at its immediate start. *)
+(* List of characters is acceptable thing to appear after "--" to make the
+ * start of a line comment if it does NOT form a larger symbol, i.e., it has no
+ * other symbol characters than '-' at its immediate start. Note that we follow
+ * https://ghc.haskell.org/trac/haskell-prime/wiki/LineCommentSyntax
+ * and make ':' into a symbol (so --: does not start a comment). *)
 let rec has_comment_start = function
   | [] -> true
   | '-'::cs -> has_comment_start cs
