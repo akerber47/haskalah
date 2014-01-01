@@ -2,8 +2,10 @@
 _build
 haskalah
 haskalah-test
-src/main.native
-test/main.native
+*.native
+*.byte
+*.d.native
+*.p.byte
 
 # editor temporary files
 \#*\#
