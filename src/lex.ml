@@ -4,6 +4,11 @@ open Batteries
 (* --- BEGIN DUPLICATED TYPES from mli --- *)
 type token =
   | EOF
+  | VarId
+  | ConId
+  | VarSym
+  | ConSym
+  (* These only match names that are *actually* qualified *)
   | QVarId
   | QConId
   | QVarSym
@@ -533,7 +538,8 @@ let postlex src prelexemes =
     Queue.iter do_nextplx prelexemes;
     (* Add EOF token to keep the parser happy. *)
     Queue.add { token = EOF; contents = ""; startline = -1;
-                startcol = -1; startraw = -1 } lexemes
+                startcol = -1; startraw = -1 } lexemes;
+    lexemes
   end
 ;;
 
