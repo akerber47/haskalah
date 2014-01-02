@@ -3,6 +3,11 @@ open Batteries
 
 (* --- BEGIN DUPLICATED TYPES from mli --- *)
 type token =
+  | VarId
+  | ConId
+  | VarSym
+  | ConSym
+  (* These only match names that are *actually* qualified *)
   | QVarId
   | QConId
   | QVarSym
@@ -476,7 +481,7 @@ let postlex src prelexemes =
         | _ -> begin
           (* Check if uppercase (varid) or lowercase (conid) after modid *)
           match cnts.[0] with
-          | '_' | 'a' .. 'z' -> QVarId
+          | '_' | 'a' .. 'z' -> VarId
           | 'A' .. 'Z' -> begin
             if String.contains cnts '.' then
               match cnts.[1 + String.index cnts '.'] with
@@ -484,7 +489,7 @@ let postlex src prelexemes =
               | 'A' .. 'Z' -> QConId
               | _ -> assert false (* Only possible starts after modid *)
             else
-              QConId
+              ConId
           end
           | _ -> assert false (* Only possible starts of (qualified) ids *)
         end
@@ -513,8 +518,8 @@ let postlex src prelexemes =
             | ':' -> QConSym
             | _ -> QVarSym
           end
-          | ':' -> QConSym
-          | _ -> QVarSym
+          | ':' -> ConSym
+          | _ -> VarSym
         end
       end
       | PreIntLit    -> IntLit

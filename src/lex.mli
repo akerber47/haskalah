@@ -1,6 +1,11 @@
 open Batteries
 
 type token =
+  | VarId
+  | ConId
+  | VarSym
+  | ConSym
+  (* These only match names that are *actually* qualified *)
   | QVarId
   | QConId
   | QVarSym
