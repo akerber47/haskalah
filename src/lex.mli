@@ -1,6 +1,7 @@
 open Batteries
 
 type token =
+  | EOF
   | VarId
   | ConId
   | VarSym

@@ -3,6 +3,7 @@ open Batteries
 
 (* --- BEGIN DUPLICATED TYPES from mli --- *)
 type token =
+  | EOF
   | QVarId
   | QConId
   | QVarSym
@@ -527,8 +528,13 @@ let postlex src prelexemes =
                 startline = stln;
                 startcol = stcl;
                 startraw = plx.startix } lexemes
-  end in
-  Queue.iter do_nextplx prelexemes; lexemes
+  end
+  in begin
+    Queue.iter do_nextplx prelexemes;
+    (* Add EOF token to keep the parser happy. *)
+    Queue.add { token = EOF; contents = ""; startline = -1;
+                startcol = -1; startraw = -1 } lexemes
+  end
 ;;
 
 type lexeme_or_indent =
