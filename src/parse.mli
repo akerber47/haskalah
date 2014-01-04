@@ -2,7 +2,8 @@ open Batteries
 
 (* Abstract syntax tree for Haskell 98. Copy of large chunks of Ch 3 of the
  * Report. *)
-type ast = ()
+type ast =
+  Foo | Bar
 (* TODO... *)
 
 (* Build an abstract syntax tree for the given stream of lexemes. *)
