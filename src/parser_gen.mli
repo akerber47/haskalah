@@ -62,6 +62,7 @@ module ItemSet : Set.S with type elt = item
 type cc = {
   itemsets : (int, ItemSet.t) Map.t; (* Store each itemset with an index... *)
   gotos : (int * Parse.term, int) Map.t; (* so we can look up gotos by index *)
+  num_itemsets : int;
 }
 
 (* States and tables of the resulting pushdown automaton. State numbers will
