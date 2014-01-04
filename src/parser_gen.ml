@@ -376,11 +376,12 @@ let simulate cfg acts gotos lexemes =
       match states with
       | [] -> assert false (* Popped too much *)
       | s::sts ->
-          if Map.mem (s,nextlx.token) acts then
-            match Map.find (s,nextlx.token) acts with
+          if Map.mem (s,nextlx.Lex.token) acts then
+            match Map.find (s,nextlx.Lex.token) acts with
             | (Shift nexts) ->
                 (* Push the current terminal (as AST), and next state *)
-                do_nextstate nexts::(s::sts) (cfg.terminal_action nextlx)::asts
+                do_nextstate (nexts::(s::sts))
+                             ((cfg.terminal_action nextlx)::asts)
             | (Reduce prod_i) ->
                 let prd = cfg.productions.(prod_i) in
                 let arity = List.length prd.rhs in
@@ -393,12 +394,12 @@ let simulate cfg acts gotos lexemes =
                       (List.drop arity (s::sts)))
                     (* Pop the corresponding number of ASTs and push the result
                      * of the semantic action. *)
-                    (prd.semantic_action (List.take arity asts))::asts
+                    ((prd.semantic_action (List.take arity asts))::asts)
                 else
                   assert false (* Shouldn't have empty reachable goto entry *)
             | Accept -> begin
                 (* Should never have any tokens after EOF *)
-                assert Queue.is_empty temp_lexemes;
+                assert (Queue.is_empty temp_lexemes);
                 (* Should have exactly 1 AST remaining when ready to accept *)
                 match asts with
                 | ast::[] -> ast
@@ -406,7 +407,7 @@ let simulate cfg acts gotos lexemes =
             end
           else
             (* If no action found, must have received invalid token. *)
-            raise (Parse_error, "Syntax error")
+            raise (Parser_gen_error "Syntax error")
   (* Start in state 0 *)
   in do_nextstate [0] []
 ;;
@@ -415,5 +416,5 @@ let simulate cfg acts gotos lexemes =
 let generate cfg =
   let my_cc = build_cc cfg in
   let (my_acts,my_gotos) = build_tables cfg my_cc in
-  (fun lexemes -> simulate cfg acts gotos lexemes)
+  (fun lexemes -> simulate cfg my_acts my_gotos lexemes)
 ;;

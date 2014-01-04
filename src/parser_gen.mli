@@ -106,9 +106,9 @@ val build_tables : grammar -> cc -> action_table * goto_table
 
 (* Simulate the resulting pushdown automaton. *)
 val simulate : grammar -> action_table -> goto_table ->
-    Parse.term Queue.t -> Parse.ast
+    Lex.lexeme Queue.t -> Parse.ast
 
 (* Overall function: basically applies the more detailed functions below in the
  * appropriate sequence to build the canonical collection and transition
  * tables, and simulate the resulting automaton. *)
-val generate : grammar -> Parse.term Queue.t -> Parse.ast
+val generate : grammar -> Lex.lexeme Queue.t -> Parse.ast
