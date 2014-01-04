@@ -73,6 +73,9 @@ type action =
 type action_table = (state * Parse.term, action) Map.t
 type goto_table = (state * Parse.nonterm, state) Map.t
 
+exception Parser_gen_error of string
+;;
+
 (* Return an array of all possible right-hand sides of productions of the given
  * nonterminal. *)
 let getrhss cfg nt =
@@ -321,8 +324,8 @@ let build_tables cfg cc =
         match terminal_after_dot cfg itm with
         | (Some t) ->
             (* Check for already filled entry (error) *)
-            if Map.mem (i,t) then
-              raise (Parse_error, ("Shift-reduce conflict"))
+            if Map.mem (i,t) !actions then
+              raise (Parser_gen_error "Shift-reduce conflict")
             else
               actions := Map.add (i,t)
                                  (Shift (Map.find (i,t) cc.gotos))
@@ -331,8 +334,8 @@ let build_tables cfg cc =
         (* If dot is at end of production, reduce action on lookahead. *)
         if itm.dot = List.length cfg.productions.(itm.prod).rhs then
           (* Check for already filled entry (error) *)
-          if Map.mem (i,itm.lookahead) then
-            raise (Parse_error ("Shift-reduce or reduce-reduce conflict"))
+          if Map.mem (i,itm.lookahead) !actions then
+            raise (Parser_gen_error "Shift-reduce or reduce-reduce conflict")
           (* Unless it's the goal production with EOF, in which case accept. *)
           else if cfg.productions.(itm.prod).lhs = cfg.goal &&
               itm.lookahead = Lex.EOF then
@@ -344,10 +347,11 @@ let build_tables cfg cc =
     (* Build that row of the goto table *)
     List.iter
       (fun nt ->
-        let new_itmst = goto cfg (Map.find i cc.itemsets) nt in
+        let new_itmst = goto cfg (Map.find i cc.itemsets) (Nonterminal nt) in
+        let new_itmst_repr = ItemSet.choose new_itmst in
         let rec do_ix j =
           if j < cc.num_itemsets then
-            if ItemSet.mem itm (Map.find i cc.itemsets) then
+            if ItemSet.mem new_itmst_repr (Map.find i cc.itemsets) then
               gotos := Map.add (i,nt) j !gotos
             else
               do_ix (i+1)
