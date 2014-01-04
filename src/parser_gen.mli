@@ -71,11 +71,8 @@ type state = int
 
 type action =
   | Shift of state
-  (* Store index of production (in grammar list). Note that we also need to
-   * store the corresponding semantic actions on the output tree together with
-   * each reduce action, so we know what to do with the "actual stuff" to build
-   * an AST rather than just accept / reject the given token string. *)
-  | Reduce of int * (Parse.ast list -> Parse.ast)
+  (* Store index of production (in grammar list) we use to reduce. *)
+  | Reduce of int
   | Accept
 
 (* Stores the actions for the pushdown automaton to take upon receiving a

@@ -65,12 +65,9 @@ type cc = {
  * be the indices of the corresponding itemsets. *)
 type state = int
 
-(* Note that we also need to store the corresponding semantic actions on the
- * output tree together with each reduce action, so we know what to do with the
- * "actual stuff" (not just parse terminal / nonterminal types) on the stack *)
 type action =
   | Shift of state
-  | Reduce of state * (Parse.ast list -> Parse.ast)
+  | Reduce of int
   | Accept
 
 type action_table = (state * Parse.term, action) Map.t
@@ -151,6 +148,19 @@ let first_set_string fstable symbls =
       { terms = TermSet.empty; has_epsilon = false; }
 ;;
 
+(* Tiny helper function to check if the dot in an item immediately precedes a
+ * terminal symbol, and if so return the terminal. *)
+let terminal_after_dot cfg itm =
+  let rhs = cfg.productions.(itm.prod).rhs in
+    if itm.dot < List.length rhs then
+      match List.nth rhs itm.dot with
+      | (Terminal t) -> Some t
+      | _ -> None
+    else
+      None
+;;
+
+
 (* Compute the "nonterminal expansion closure" of an itemset. Basically, if
   * we're given a set of items we're in a state to receive, this computes
   * other items we should also be willing to receive in this same state (by
@@ -200,13 +210,13 @@ let rec closure cfg itmst =
   end
 ;;
 
-(* Compute the "goto" of an item set on a terminal. This computes the
+(* Compute the "goto" of an item set on a grammar symbol. This computes the
  * possible items we'll be ready to receive after being in a state to
- * accept the given set of items and reading in the given terminal. Note that
- * if the given terminal doesn't match *any* of "next desired terminals"
- * (terminals immediately following the dot) of the given items, we will get
+ * accept the given set of items and matching up the given symbol. Note that
+ * if the given symbol doesn't match *any* of "next desired symbols"
+ * (symbols immediately following the dot) of the given items, we will get
  * an empty set. *)
-let goto cfg itmst t =
+let goto cfg itmst sym =
   let next_itmst = ref ItemSet.empty in begin
   (* Look for all items which explicitly have that terminal immediately
    * following the dot in their rhs. Then move the dot. *)
@@ -214,7 +224,7 @@ let goto cfg itmst t =
       (fun itm ->
         let rhs = cfg.productions.(itm.prod).rhs in
           if itm.dot < List.length rhs &&
-              List.nth rhs itm.dot = (Terminal t) then
+              List.nth rhs itm.dot = sym then
             next_itmst := ItemSet.add {itm with dot=itm.dot+1} !next_itmst)
       itmst;
     (* Finally, compute the closure of all those items post dot transition *)
@@ -264,13 +274,9 @@ let build_cc cfg =
          * be the only possibilities that make (goto tmst t) nonempty. *)
         let next_gotos = ItemSet.fold
           (fun itm tset ->
-            let rhs = cfg.productions.(itm.prod).rhs in
-              if itm.dot < List.length rhs then
-                match List.nth rhs itm.dot with
-                | (Terminal t) -> TermSet.add t tset
-                | _ -> tset
-              else
-                tset)
+            match terminal_after_dot cfg itm with
+            | (Some t) -> TermSet.add t tset
+            | None -> tset)
           itmst
           TermSet.empty
         (* Check whether goto(itmst,t) yields a *new* itemset, for each t, and
@@ -279,7 +285,7 @@ let build_cc cfg =
         in
         TermSet.iter
           (fun t ->
-            let next_itmst = goto cfg itmst t in
+            let next_itmst = goto cfg itmst (Terminal t) in
             (* Since all itemsets are closed, to check if we've already seen
              * this itemset it's enough to look up one representative. *)
             let next_itmst_repr = ItemSet.choose next_itmst in
@@ -302,7 +308,55 @@ let build_cc cfg =
   end
 ;;
 
-let build_tables cfg cc = (Map.empty, Map.empty)
+let build_tables cfg cc =
+  let all_nonterms =
+      List.unique (Array.to_list (Array.map (fun p -> p.lhs) cfg.productions))
+  and actions = ref Map.empty
+  and gotos = ref Map.empty
+  in for i = 0 to (cc.num_itemsets - 1) do
+    (* Build that row of the action table *)
+    ItemSet.iter
+      (fun itm -> begin
+        (* If dot is immediately before terminal, shift action. *)
+        match terminal_after_dot cfg itm with
+        | (Some t) ->
+            (* Check for already filled entry (error) *)
+            if Map.mem (i,t) then
+              raise (Parse_error, ("Shift-reduce conflict"))
+            else
+              actions := Map.add (i,t)
+                                 (Shift (Map.find (i,t) cc.gotos))
+                                 !actions
+        | None -> ();
+        (* If dot is at end of production, reduce action on lookahead. *)
+        if itm.dot = List.length cfg.productions.(itm.prod).rhs then
+          (* Check for already filled entry (error) *)
+          if Map.mem (i,itm.lookahead) then
+            raise (Parse_error ("Shift-reduce or reduce-reduce conflict"))
+          (* Unless it's the goal production with EOF, in which case accept. *)
+          else if cfg.productions.(itm.prod).lhs = cfg.goal &&
+              itm.lookahead = Lex.EOF then
+            actions := Map.add (i,Lex.EOF) Accept !actions
+          else
+            actions := Map.add (i,itm.lookahead) (Reduce itm.prod) !actions;
+      end)
+      (Map.find i cc.itemsets);
+    (* Build that row of the goto table *)
+    List.iter
+      (fun nt ->
+        let new_itmst = goto cfg (Map.find i cc.itemsets) nt in
+        let rec do_ix j =
+          if j < cc.num_itemsets then
+            if ItemSet.mem itm (Map.find i cc.itemsets) then
+              gotos := Map.add (i,nt) j !gotos
+            else
+              do_ix (i+1)
+          else
+            assert false (* We should've already found all itemsets *)
+        in do_ix 0)
+      all_nonterms
+  done;
+  (!actions, !gotos)
 ;;
 
 let simulate cfg acts gotos lexemes = Parse.Foo
