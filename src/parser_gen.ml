@@ -7,32 +7,176 @@ open Batteries
  * but that would take tons of factoring. So we'll implement bottom-up parsing.
  * LR(1). *)
 
+(* --- BEGIN DUPLICATED MODULE TYPES from mli --- *)
+(* Types / functions a parser generator needs to know in order to build a
+ * parser for a given grammar. Input type for Make *)
+module type Parse_gen_able = sig
+  type tm (* Terminals in grammar *)
+  val tm_compare : tm -> tm -> int
+  type ntm (* Nonterminals in grammar *)
+  val ntm_compare : ntm -> ntm -> int
+  type lx (* Lexeme input for generated parser *)
+  val lx_to_tm : lx -> tm (* Extract terminal symbol info from lexeme *)
+  val eof : tm (* End of file terminal *)
+  type ast (* AST output for generated parser *)
+end;;
+
+(* Output type for Make. A fully typed-out parser generator. *)
+module type P = sig
+
+(* Types copied over from input module *)
+type term
+type nonterm
+type lexeme
+type ast
+
 type symbol =
-  | Terminal of Parse.term
-  | Nonterminal of Parse.nonterm
+  | Terminal of term
+  | Nonterminal of nonterm
 
 type production = {
-  lhs : Parse.nonterm;
+  lhs : nonterm;
   rhs : symbol list;
   (* Semantic action to be applied to the list of return values of the
    * semantic actions of the terms of rhs. *)
-  semantic_action : (Parse.ast list -> Parse.ast);
+  semantic_action : (ast list -> ast);
 }
 
 type grammar = {
-  goal : Parse.nonterm;
+  goal : nonterm;
   productions : production Array.t;
   (* Semantic action to be applied when matching any terminal symbol. Taken as
    * input the matched lexeme (to extract its contents, line/col #s, etc. *)
-  terminal_action : (Lex.lexeme -> Parse.ast);
+  terminal_action : (lexeme -> ast);
+}
+
+module TermSet : Set.S with type elt = term
+
+(* Represents a FIRST set. FIRST(string of grammar symbols) = the set of all
+ * first terminals in terminal-strings that match the given symbol-string.
+ * i.e., look at all possible grammar expansions of the given symbol-string.
+ * The first elements of those expansions make up the FIRST set.  If the
+ * symbol-string can expand to an empty terminal-string, we say that the FIRST
+ * set also includes epsilon, in addition to ordinary terminals. *)
+type first_set = {
+  terms : TermSet.t; (* "Actual" (non-epsilon) terminals in the set. *)
+  has_epsilon : bool; (* Whether or not the set includes epsilon *)
+}
+
+(* Items in the canonical LR(1) construction. An item represents a "possible
+ * production match" for our parser as it reads in tokens (terminal symbols).
+ * Sets of these (ie "all possible matches at this point") will be used to
+ * construct states for our parser.
+ * prod = production we are matching against (the rhs of)
+ * dot = how far in the production we've matched so far (i.e. when we read
+ *       another token, what's the next thing in rhs it must match)
+ * lookahead = next thing we're matching against, after the rhs. Without this
+ *             we'd be doing LR(0). *)
+type item = {
+  prod : int; (* Index into given array of productions *)
+  dot : int; (* from 0 up to length of rhs of production *)
+  lookahead : term;
+}
+
+module ItemSet : Set.S with type elt = item
+
+(* Represents the "canonical collection" (CC) of sets of items for our CFG.
+ * These item sets will be the states of our parsing pushdown automaton. Each
+ * item set stores items that match all the possible inputs the parser
+ * is ready to receive at a given time. We also keep track of the transitions
+ * between these item sets that take place when the parser processes an input
+ * (ie a terminal in the grammar). *)
+type cc = {
+  itemsets : (int, ItemSet.t) Map.t; (* Store each itemset with an index... *)
+  gotos : (int * term, int) Map.t; (* so we can look up gotos by index *)
+  num_itemsets : int;
+}
+
+(* States and tables of the resulting pushdown automaton. State numbers will
+ * be the indices of the corresponding itemsets in the CC. *)
+type state = int
+
+type action =
+  | Shift of state
+  (* Store index of production (in grammar list) we use to reduce. *)
+  | Reduce of int
+  | Accept
+
+(* Stores the actions for the pushdown automaton to take upon receiving a
+ * terminal in a state - either "shift" (push+transition to a new state) or
+ * "reduce" - (pop a bunch of old states, then apply a reduction).
+ * Note that these actions also must be carried out on the actual asts when
+ * parsing - i.e., shift pushes a new ast built from the most recent terminal,
+ * and reduce combines the asts corresponding to the popped states. *)
+type action_table = (state * term, action) Map.t
+(* Stores the next state for the pushdown automaton to push+transition to after
+ * performing a reduce action. We can't store these in the action table because
+ * they depend on the state on the stack *underneath* all the popped states -
+ * ie the things the parser will be ready to match *after* it's "completed a
+ * submatch" corresponding to the reduced state. *)
+type goto_table = (state * nonterm, state) Map.t
+
+(* Compute the FIRST sets for nonterminals in a grammar. *)
+val first_sets : grammar -> (nonterm, first_set) Map.t
+
+(* Given the computed FIRST sets, find FIRST for an arbitrary input string
+ * (list of symbols). *)
+val first_set_string : (nonterm, first_set) Map.t ->
+  symbol list -> first_set
+
+(* Build the LR(1) canonical collection for a grammar. *)
+val build_cc : grammar -> cc
+
+(* Use the canonical collection to build the transition tables for the pushdown
+ * automaton. The resulting automaton always has state 0 as the start state. *)
+val build_tables : grammar -> cc -> action_table * goto_table
+
+(* Simulate the resulting pushdown automaton. *)
+val simulate : grammar -> action_table -> goto_table ->
+    lexeme Queue.t -> ast
+
+(* Overall function: basically applies the more detailed functions below in the
+ * appropriate sequence to build the canonical collection and transition
+ * tables, and simulate the resulting automaton. *)
+val generate : grammar -> lexeme Queue.t -> ast
+
+end;;
+
+(* --- END DUPLICATED TYPES from mli --- *)
+
+module Make(Pga : Parse_gen_able) = struct
+
+type term = Pga.tm
+type nonterm = Pga.ntm
+type lexeme = Pga.lx
+type ast = Pga.ast
+
+type symbol =
+  | Terminal of term
+  | Nonterminal of nonterm
+
+type production = {
+  lhs : nonterm;
+  rhs : symbol list;
+  (* Semantic action to be applied to the list of return values of the
+   * semantic actions of the terms of rhs. *)
+  semantic_action : (ast list -> ast);
+}
+
+type grammar = {
+  goal : nonterm;
+  productions : production Array.t;
+  (* Semantic action to be applied when matching any terminal symbol. Taken as
+   * input the matched lexeme (to extract its contents, line/col #s, etc. *)
+  terminal_action : (lexeme -> ast);
 }
 
 (* Types used to construct FIRST sets (and I suppose also FOLLOW sets, except
  * FOLLOW sets aren't used in LR) *)
 module TermSet =  Set.Make (
   struct
-    let compare = Pervasives.compare
-    type t = Parse.term
+    let compare = Pga.tm_compare
+    type t = term
   end
 )
 
@@ -45,19 +189,28 @@ type first_set = {
 type item = {
   prod : int;
   dot : int;
-  lookahead : Parse.term;
+  lookahead : term;
 }
 
 module ItemSet = Set.Make (
   struct
-    let compare = Pervasives.compare
+    let compare itm1 itm2 =
+      let prod_cmp = compare itm1.prod itm2.prod in
+      if prod_cmp = 0 then
+        let dot_cmp = compare itm1.dot itm2.dot in
+        if dot_cmp = 0 then
+          Pga.tm_compare itm1.lookahead itm2.lookahead
+        else
+          dot_cmp
+      else
+        prod_cmp
     type t = item
   end
 )
 
 type cc = {
   itemsets : (int, ItemSet.t) Map.t; (* Store each itemset with an index... *)
-  gotos : (int * Parse.term, int) Map.t; (* so we can look up gotos by index *)
+  gotos : (int * term, int) Map.t; (* so we can look up gotos by index *)
   num_itemsets : int;
 }
 
@@ -70,18 +223,16 @@ type action =
   | Reduce of int
   | Accept
 
-type action_table = (state * Parse.term, action) Map.t
-type goto_table = (state * Parse.nonterm, state) Map.t
+type action_table = (state * term, action) Map.t
+type goto_table = (state * nonterm, state) Map.t
 
 exception Parser_gen_error of string
-;;
 
 (* Return an array of all possible right-hand sides of productions of the given
  * nonterminal. *)
 let getrhss cfg nt =
   Array.map (fun p -> p.rhs)
             (Array.filter (fun p -> p.lhs = nt) cfg.productions)
-;;
 
 let first_sets cfg =
   let curmap = ref Map.empty
@@ -128,7 +279,6 @@ let first_sets cfg =
     List.iter do_nonterm all_nonterms;
     !curmap
   end
-;;
 
 (* Same as middle loop above, but without memoizing / building table. *)
 let first_set_string fstable symbls =
@@ -149,7 +299,6 @@ let first_set_string fstable symbls =
   in
   first_set_string_acc symbls
       { terms = TermSet.empty; has_epsilon = false; }
-;;
 
 (* Tiny helper function to check if the dot in an item immediately precedes a
  * terminal symbol, and if so return the terminal. *)
@@ -161,8 +310,6 @@ let terminal_after_dot cfg itm =
       | _ -> None
     else
       None
-;;
-
 
 (* Compute the "nonterminal expansion closure" of an itemset. Basically, if
   * we're given a set of items we're in a state to receive, this computes
@@ -211,7 +358,6 @@ let rec closure cfg itmst =
     else
       itmst
   end
-;;
 
 (* Compute the "goto" of an item set on a grammar symbol. This computes the
  * possible items we'll be ready to receive after being in a state to
@@ -233,7 +379,6 @@ let goto cfg itmst sym =
     (* Finally, compute the closure of all those items post dot transition *)
     closure cfg !next_itmst
   end
-;;
 
 let build_cc cfg =
   (* Keep track of the item sets and gotos we've found so far. *)
@@ -264,7 +409,7 @@ let build_cc cfg =
        * (prod has lhs = goal), we haven't matched anything yet (dot = 0), and
        * the next thing we encounter after that should be EOF. *)
       (fun itmst prod_i ->
-        ItemSet.add { prod = prod_i; dot = 0; lookahead = Lex.EOF } itmst)
+        ItemSet.add { prod = prod_i; dot = 0; lookahead = Pga.eof } itmst)
       ItemSet.empty
       (Util.findi_all (fun prod -> prod.lhs = cfg.goal) cfg.productions))
     in cur_itemsets := Map.add 0 itmst_zero !cur_itemsets;
@@ -309,7 +454,6 @@ let build_cc cfg =
       gotos = !cur_gotos;
       num_itemsets = !ix_new_itemset; }
   end
-;;
 
 let build_tables cfg cc =
   let all_nonterms =
@@ -338,8 +482,8 @@ let build_tables cfg cc =
             raise (Parser_gen_error "Shift-reduce or reduce-reduce conflict")
           (* Unless it's the goal production with EOF, in which case accept. *)
           else if cfg.productions.(itm.prod).lhs = cfg.goal &&
-              itm.lookahead = Lex.EOF then
-            actions := Map.add (i,Lex.EOF) Accept !actions
+              itm.lookahead = Pga.eof then
+            actions := Map.add (i,itm.lookahead) Accept !actions
           else
             actions := Map.add (i,itm.lookahead) (Reduce itm.prod) !actions;
       end)
@@ -361,7 +505,6 @@ let build_tables cfg cc =
       all_nonterms
   done;
   (!actions, !gotos)
-;;
 
 let simulate cfg acts gotos lexemes =
   (* Don't modify input queue *)
@@ -376,8 +519,8 @@ let simulate cfg acts gotos lexemes =
       match states with
       | [] -> assert false (* Popped too much *)
       | s::sts ->
-          if Map.mem (s,nextlx.Lex.token) acts then
-            match Map.find (s,nextlx.Lex.token) acts with
+          if Map.mem (s,Pga.lx_to_tm nextlx) acts then
+            match Map.find (s,Pga.lx_to_tm nextlx) acts with
             | (Shift nexts) ->
                 (* Push the current terminal (as AST), and next state *)
                 do_nextstate (nexts::(s::sts))
@@ -410,11 +553,11 @@ let simulate cfg acts gotos lexemes =
             raise (Parser_gen_error "Syntax error")
   (* Start in state 0 *)
   in do_nextstate [0] []
-;;
 
 (* Finally, put it all together *)
 let generate cfg =
   let my_cc = build_cc cfg in
   let (my_acts,my_gotos) = build_tables cfg my_cc in
   (fun lexemes -> simulate cfg my_acts my_gotos lexemes)
-;;
+
+end ;;
