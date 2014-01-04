@@ -71,6 +71,7 @@ type state = int
 type action =
   | Shift of state
   | Reduce of state * (Parse.ast list -> Parse.ast)
+  | Accept
 
 type action_table = (state * Parse.term, action) Map.t
 type goto_table = (state * Parse.nonterm, state) Map.t
@@ -186,13 +187,14 @@ let rec closure cfg itmst =
                           new_itmst := ItemSet.add new_item !new_itmst;
                           still_adding := true
                         end)
-              first_set_string fstable (rhsrest @ [itm.lookahead]).terms)
+              (first_set_string fstable
+                                (rhsrest @ [(Terminal itm.lookahead)])).terms)
           (Util.findi_all (fun prod -> prod.lhs = nt) cfg.productions)
       | _ -> ()
   in begin
     ItemSet.iter do_item itmst;
     if !still_adding then
-      closure !new_itmst
+      closure cfg !new_itmst
     else
       itmst
   end
@@ -205,18 +207,18 @@ let rec closure cfg itmst =
  * (terminals immediately following the dot) of the given items, we will get
  * an empty set. *)
 let goto cfg itmst t =
-  let next_itmst = ref itmst in begin
+  let next_itmst = ref ItemSet.empty in begin
   (* Look for all items which explicitly have that terminal immediately
    * following the dot in their rhs. Then move the dot. *)
     ItemSet.iter
       (fun itm ->
         let rhs = cfg.productions.(itm.prod).rhs in
           if itm.dot < List.length rhs &&
-              List.nth itm.dot rhs = (Terminal t) then
-            next_itmset := ItemSet.add {itm with dot=itm.dot+1} !next_itmst)
+              List.nth rhs itm.dot = (Terminal t) then
+            next_itmst := ItemSet.add {itm with dot=itm.dot+1} !next_itmst)
       itmst;
     (* Finally, compute the closure of all those items post dot transition *)
-    closure !next_itmst
+    closure cfg !next_itmst
   end
 ;;
 
@@ -260,16 +262,17 @@ let build_cc cfg =
         let itmst = Map.find ix !cur_itemsets in
         (* Look for terminals following dots among items in itmst. These will
          * be the only possibilities that make (goto tmst t) nonempty. *)
-        let next_gotos = ItemSet.fold_left
-          (fun tset itm ->
+        let next_gotos = ItemSet.fold
+          (fun itm tset ->
             let rhs = cfg.productions.(itm.prod).rhs in
-              if itm.dot < List.length rhs &&
-                  List.nth itm.dot rhs = (Terminal t) then
-                TermSet.add t ts
+              if itm.dot < List.length rhs then
+                match List.nth rhs itm.dot with
+                | (Terminal t) -> TermSet.add t tset
+                | _ -> tset
               else
-                ts)
-          TermSet.empty
+                tset)
           itmst
+          TermSet.empty
         (* Check whether goto(itmst,t) yields a *new* itemset, for each t, and
          * if so add it to the itemset table. Either way, add this transition
          * to the goto table. *)
@@ -280,7 +283,7 @@ let build_cc cfg =
             (* Since all itemsets are closed, to check if we've already seen
              * this itemset it's enough to look up one representative. *)
             let next_itmst_repr = ItemSet.choose next_itmst in
-            let next_ix = match lookup_item next_itmset_repr with
+            let next_ix = match lookup_item next_itmst_repr with
             | (Some existing_ix) -> existing_ix
             | None -> begin
               cur_itemsets := Map.add !ix_new_itemset next_itmst !cur_itemsets;
@@ -288,7 +291,7 @@ let build_cc cfg =
               !ix_new_itemset - 1
             end
             in
-            Map.add (ix, t) next_ix !cur_gotos)
+            cur_gotos := Map.add (ix, t) next_ix !cur_gotos)
           next_gotos;
         ix_first_unprocessed := !ix_first_unprocessed + 1
       end done
