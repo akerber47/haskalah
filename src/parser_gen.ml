@@ -240,10 +240,11 @@ let build_cc cfg =
           do_ix (i+1)
       else
         None
+    in do_ix 0
   in
   begin
     (* Start by adding the 0th itemset, corresponding to the start state. *)
-    let itmst_zero = closure (List.fold_left
+    let itmst_zero = closure cfg (List.fold_left
       (* In the start state, we want to match the goal symbol somehow
        * (prod has lhs = goal), we haven't matched anything yet (dot = 0), and
        * the next thing we encounter after that should be EOF. *)
@@ -275,7 +276,7 @@ let build_cc cfg =
         in
         TermSet.iter
           (fun t ->
-            let next_itmst = goto itmst t in
+            let next_itmst = goto cfg itmst t in
             (* Since all itemsets are closed, to check if we've already seen
              * this itemset it's enough to look up one representative. *)
             let next_itmst_repr = ItemSet.choose next_itmst in
