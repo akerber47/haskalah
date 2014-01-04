@@ -20,7 +20,7 @@ type grammar = {
   productions : production Array.t;
   (* Semantic action to be applied when matching any terminal symbol. Taken as
    * input the matched lexeme (to extract its contents, line/col #s, etc. *)
-  terminal_action : (Parse.term -> Parse.ast);
+  terminal_action : (Lex.lexeme -> Parse.ast);
 }
 
 module TermSet : Set.S with type elt = Parse.term

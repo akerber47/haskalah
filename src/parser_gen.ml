@@ -24,7 +24,7 @@ type grammar = {
   productions : production Array.t;
   (* Semantic action to be applied when matching any terminal symbol. Taken as
    * input the matched lexeme (to extract its contents, line/col #s, etc. *)
-  terminal_action : (Parse.term -> Parse.ast);
+  terminal_action : (Lex.lexeme -> Parse.ast);
 }
 
 (* Types used to construct FIRST sets (and I suppose also FOLLOW sets, except
@@ -363,8 +363,57 @@ let build_tables cfg cc =
   (!actions, !gotos)
 ;;
 
-let simulate cfg acts gotos lexemes = Parse.Foo
+let simulate cfg acts gotos lexemes =
+  (* Don't modify input queue *)
+  let temp_lexemes = Queue.copy lexemes in
+  (* Pass along stack of states, stack of ASTs. Represent each stack with a
+   * list. *)
+  let rec do_nextstate states asts =
+    if Queue.is_empty temp_lexemes then
+      assert false (* Should have hit EOF and either accepted or rejected *)
+    else
+      let nextlx = Queue.take temp_lexemes in
+      match states with
+      | [] -> assert false (* Popped too much *)
+      | s::sts ->
+          if Map.mem (s,nextlx.token) acts then
+            match Map.find (s,nextlx.token) acts with
+            | (Shift nexts) ->
+                (* Push the current terminal (as AST), and next state *)
+                do_nextstate nexts::(s::sts) (cfg.terminal_action nextlx)::asts
+            | (Reduce prod_i) ->
+                let prd = cfg.productions.(prod_i) in
+                let arity = List.length prd.rhs in
+                let goto_from_st = List.nth (s::sts) arity in
+                if Map.mem (goto_from_st, prd.lhs) gotos then
+                  do_nextstate
+                    (* Pop a number of states equal to the arity of
+                     * the production, then push the goto value. *)
+                    ((Map.find (goto_from_st, prd.lhs) gotos)::
+                      (List.drop arity (s::sts)))
+                    (* Pop the corresponding number of ASTs and push the result
+                     * of the semantic action. *)
+                    (prd.semantic_action (List.take arity asts))::asts
+                else
+                  assert false (* Shouldn't have empty reachable goto entry *)
+            | Accept -> begin
+                (* Should never have any tokens after EOF *)
+                assert Queue.is_empty temp_lexemes;
+                (* Should have exactly 1 AST remaining when ready to accept *)
+                match asts with
+                | ast::[] -> ast
+                | _ -> assert false
+            end
+          else
+            (* If no action found, must have received invalid token. *)
+            raise (Parse_error, "Syntax error")
+  (* Start in state 0 *)
+  in do_nextstate [0] []
 ;;
 
-let generate cfg lexemes = Parse.Bar
+(* Finally, put it all together *)
+let generate cfg =
+  let my_cc = build_cc cfg in
+  let (my_acts,my_gotos) = build_tables cfg my_cc in
+  (fun lexemes -> simulate cfg acts gotos lexemes)
 ;;
