@@ -1,7 +1,7 @@
 open Batteries
 ;;
 
-module FooParserGenerator = Parser_gen.Make (
+module Foo_pg = Parser_gen.Make (
   struct
     type tm = int
     let tm_compare = compare
@@ -15,7 +15,15 @@ module FooParserGenerator = Parser_gen.Make (
 );;
 
 let () = begin
-  let s = FooParserGenerator.Item_set.empty in
+  let s = Foo_pg.first_sets
+    { Foo_pg.goal = 0;
+      Foo_pg.productions = [|
+        { Foo_pg.lhs = 0;
+          Foo_pg.rhs = [Foo_pg.T 0];
+          Foo_pg.semantic_action = (fun _ -> 0); }
+      |];
+      Foo_pg.terminal_action = (fun _ -> 0); }
+  in
   print_string (dump s);
   print_string (dump (List.of_enum (Queue.enum (Lex.prelex "foobar"))))
 end

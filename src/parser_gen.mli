@@ -45,8 +45,6 @@ type grammar = {
   terminal_action : (lexeme -> ast);
 }
 
-module Term_set : Set.S with type elt = term
-
 (* Represents a FIRST set. FIRST(string of grammar symbols) = the set of all
  * first terminals in terminal-strings that match the given symbol-string.
  * i.e., look at all possible grammar expansions of the given symbol-string.
@@ -54,7 +52,7 @@ module Term_set : Set.S with type elt = term
  * symbol-string can expand to an empty terminal-string, we say that the FIRST
  * set also includes epsilon, in addition to ordinary terminals. *)
 type first_set = {
-  terms : Term_set.t; (* "Actual" (non-epsilon) terminals in the set. *)
+  terms : term Set.t; (* "Actual" (non-epsilon) terminals in the set. *)
   has_epsilon : bool; (* Whether or not the set includes epsilon *)
 }
 
@@ -73,8 +71,6 @@ type item = {
   lookahead : term;
 }
 
-module Item_set : Set.S with type elt = item
-
 (* Represents the "canonical collection" (CC) of sets of items for our CFG.
  * These item sets will be the states of our parsing pushdown automaton. Each
  * item set stores items that match all the possible inputs the parser
@@ -82,7 +78,7 @@ module Item_set : Set.S with type elt = item
  * between these item sets that take place when the parser processes an input
  * (ie a terminal in the grammar). *)
 type cc = {
-  itemsets : (int, Item_set.t) Map.t; (* Store each itemset with an index... *)
+  itemsets : (int, item Set.t) Map.t; (* Store each itemset with an index... *)
   gotos : (int * term, int) Map.t; (* so we can look up gotos by index *)
   num_itemsets : int;
 }

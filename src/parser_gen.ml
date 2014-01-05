@@ -50,8 +50,6 @@ type grammar = {
   terminal_action : (lexeme -> ast);
 }
 
-module Term_set : Set.S with type elt = term
-
 (* Represents a FIRST set. FIRST(string of grammar symbols) = the set of all
  * first terminals in terminal-strings that match the given symbol-string.
  * i.e., look at all possible grammar expansions of the given symbol-string.
@@ -59,7 +57,7 @@ module Term_set : Set.S with type elt = term
  * symbol-string can expand to an empty terminal-string, we say that the FIRST
  * set also includes epsilon, in addition to ordinary terminals. *)
 type first_set = {
-  terms : Term_set.t; (* "Actual" (non-epsilon) terminals in the set. *)
+  terms : term Set.t; (* "Actual" (non-epsilon) terminals in the set. *)
   has_epsilon : bool; (* Whether or not the set includes epsilon *)
 }
 
@@ -78,8 +76,6 @@ type item = {
   lookahead : term;
 }
 
-module Item_set : Set.S with type elt = item
-
 (* Represents the "canonical collection" (CC) of sets of items for our CFG.
  * These item sets will be the states of our parsing pushdown automaton. Each
  * item set stores items that match all the possible inputs the parser
@@ -87,7 +83,7 @@ module Item_set : Set.S with type elt = item
  * between these item sets that take place when the parser processes an input
  * (ie a terminal in the grammar). *)
 type cc = {
-  itemsets : (int, Item_set.t) Map.t; (* Store each itemset with an index... *)
+  itemsets : (int, item Set.t) Map.t; (* Store each itemset with an index... *)
   gotos : (int * term, int) Map.t; (* so we can look up gotos by index *)
   num_itemsets : int;
 }
@@ -171,17 +167,8 @@ type grammar = {
   terminal_action : (lexeme -> ast);
 }
 
-(* Types used to construct FIRST sets (and I suppose also FOLLOW sets, except
- * FOLLOW sets aren't used in LR) *)
-module Term_set =  Set.Make (
-  struct
-    let compare = Pga.tm_compare
-    type t = term
-  end
-)
-
 type first_set = {
-  terms : Term_set.t; (* "Actual" terminals in the set. *)
+  terms : term Set.t; (* "Actual" terminals in the set. *)
   has_epsilon : bool; (* Whether or not the set includes epsilon *)
 }
 
@@ -192,24 +179,8 @@ type item = {
   lookahead : term;
 }
 
-module Item_set = Set.Make (
-  struct
-    let compare itm1 itm2 =
-      let prod_cmp = compare itm1.prod itm2.prod in
-      if prod_cmp = 0 then
-        let dot_cmp = compare itm1.dot itm2.dot in
-        if dot_cmp = 0 then
-          Pga.tm_compare itm1.lookahead itm2.lookahead
-        else
-          dot_cmp
-      else
-        prod_cmp
-    type t = item
-  end
-)
-
 type cc = {
-  itemsets : (int, Item_set.t) Map.t; (* Store each itemset with an index... *)
+  itemsets : (int, item Set.t) Map.t; (* Store each itemset with an index... *)
   gotos : (int * term, int) Map.t; (* so we can look up gotos by index *)
   num_itemsets : int;
 }
@@ -251,7 +222,7 @@ let first_sets cfg =
         (* If we reach empty list, all nonterminals above us in the string had
          * an epsilon (empty) production. *)
         | [] -> { fs with has_epsilon = true }
-        | (T t)::_ -> { fs with terms = Term_set.add t fs.terms }
+        | (T t)::_ -> { fs with terms = Set.add t fs.terms }
         | (NT nt)::ss -> begin
           (* XXX Grammar had better not be left-recursive (!) *)
           do_nonterm nt;
@@ -261,16 +232,16 @@ let first_sets cfg =
            * otherwise we can just look at the possible terminals. *)
           if firstfs.has_epsilon then
             add_first_from_str
-                { fs with terms = Term_set.union firstfs.terms fs.terms }
+                { fs with terms = Set.union firstfs.terms fs.terms }
                 ss
           else
-            { fs with terms = Term_set.union firstfs.terms fs.terms }
+            { fs with terms = Set.union firstfs.terms fs.terms }
         end
       in
       (* Find all possible first set elems from productions of this nonterminal
        * in the grammar. *)
       let nextfs = Array.fold_left add_first_from_str
-          { terms = Term_set.empty; has_epsilon = false; } rhss
+          { terms = Set.empty; has_epsilon = false; } rhss
       in
       (* And add the resulting first set to the map. ("memoize") *)
       curmap := Map.add nextnt nextfs !curmap
@@ -285,7 +256,7 @@ let first_set_string fstable symbls =
   let rec first_set_string_acc syms fs =
     match syms with
     | [] -> { fs with has_epsilon = true }
-    | (T t)::_ -> { fs with terms = Term_set.add t fs.terms }
+    | (T t)::_ -> { fs with terms = Set.add t fs.terms }
     | (NT nt)::ss ->
       let firstfs = Map.find nt fstable in
       (* If the first symbol is nonterminal (potentially) reducing to
@@ -293,12 +264,12 @@ let first_set_string fstable symbls =
        * otherwise we can just look at the possible terminals. *)
       if firstfs.has_epsilon then
         first_set_string_acc ss
-            { fs with terms = Term_set.union firstfs.terms fs.terms }
+            { fs with terms = Set.union firstfs.terms fs.terms }
       else
-        { fs with terms = Term_set.union firstfs.terms fs.terms }
+        { fs with terms = Set.union firstfs.terms fs.terms }
   in
   first_set_string_acc symbls
-      { terms = Term_set.empty; has_epsilon = false; }
+      { terms = Set.empty; has_epsilon = false; }
 
 (* Tiny helper function to check if the dot in an item immediately precedes a
  * terminal symbol, and if so return the terminal. *)
@@ -338,13 +309,13 @@ let rec closure cfg itmst =
              * of the original rhs and the original lookahead symbol. Note
              * that we know this first set can't contain epsilon because the
              * string ends in a terminal. *)
-            Term_set.iter
+            Set.iter
               (fun t -> let new_item = { prod = prod_i;
                                          dot = 0;
                                          lookahead = t; } in
                         (* Keep track of whether we added anything. *)
-                        if not (Item_set.mem new_item !new_itmst) then begin
-                          new_itmst := Item_set.add new_item !new_itmst;
+                        if not (Set.mem new_item !new_itmst) then begin
+                          new_itmst := Set.add new_item !new_itmst;
                           still_adding := true
                         end)
               (first_set_string fstable
@@ -352,7 +323,7 @@ let rec closure cfg itmst =
           (Util.findi_all (fun prod -> prod.lhs = nt) cfg.productions)
       | _ -> ()
   in begin
-    Item_set.iter do_item itmst;
+    Set.iter do_item itmst;
     if !still_adding then
       closure cfg !new_itmst
     else
@@ -366,15 +337,15 @@ let rec closure cfg itmst =
  * (symbols immediately following the dot) of the given items, we will get
  * an empty set. *)
 let goto cfg itmst sym =
-  let next_itmst = ref Item_set.empty in begin
+  let next_itmst = ref Set.empty in begin
   (* Look for all items which explicitly have that terminal immediately
    * following the dot in their rhs. Then move the dot. *)
-    Item_set.iter
+    Set.iter
       (fun itm ->
         let rhs = cfg.productions.(itm.prod).rhs in
           if itm.dot < List.length rhs &&
               List.nth rhs itm.dot = sym then
-            next_itmst := Item_set.add {itm with dot=itm.dot+1} !next_itmst)
+            next_itmst := Set.add {itm with dot=itm.dot+1} !next_itmst)
       itmst;
     (* Finally, compute the closure of all those items post dot transition *)
     closure cfg !next_itmst
@@ -394,7 +365,7 @@ let build_cc cfg =
   in let lookup_item itm =
     let rec do_ix i =
       if i < !ix_new_itemset then
-        if Item_set.mem itm (Map.find i !cur_itemsets) then
+        if Set.mem itm (Map.find i !cur_itemsets) then
           Some i
         else
           do_ix (i+1)
@@ -409,8 +380,8 @@ let build_cc cfg =
        * (prod has lhs = goal), we haven't matched anything yet (dot = 0), and
        * the next thing we encounter after that should be EOF. *)
       (fun itmst prod_i ->
-        Item_set.add { prod = prod_i; dot = 0; lookahead = Pga.eof } itmst)
-      Item_set.empty
+        Set.add { prod = prod_i; dot = 0; lookahead = Pga.eof } itmst)
+      Set.empty
       (Util.findi_all (fun prod -> prod.lhs = cfg.goal) cfg.productions))
     in cur_itemsets := Map.add 0 itmst_zero !cur_itemsets;
     (* Now, repeatedly iterate over all unprocessed itemsets until there are no
@@ -420,23 +391,23 @@ let build_cc cfg =
         let itmst = Map.find ix !cur_itemsets in
         (* Look for terminals following dots among items in itmst. These will
          * be the only possibilities that make (goto tmst t) nonempty. *)
-        let next_gotos = Item_set.fold
+        let next_gotos = Set.fold
           (fun itm tset ->
             match terminal_after_dot cfg itm with
-            | (Some t) -> Term_set.add t tset
+            | (Some t) -> Set.add t tset
             | None -> tset)
           itmst
-          Term_set.empty
+          Set.empty
         (* Check whether goto(itmst,t) yields a *new* itemset, for each t, and
          * if so add it to the itemset table. Either way, add this transition
          * to the goto table. *)
         in
-        Term_set.iter
+        Set.iter
           (fun t ->
             let next_itmst = goto cfg itmst (T t) in
             (* Since all itemsets are closed, to check if we've already seen
              * this itemset it's enough to look up one representative. *)
-            let next_itmst_repr = Item_set.choose next_itmst in
+            let next_itmst_repr = Set.choose next_itmst in
             let next_ix = match lookup_item next_itmst_repr with
             | (Some existing_ix) -> existing_ix
             | None -> begin
@@ -462,7 +433,7 @@ let build_tables cfg cc =
   and gotos = ref Map.empty
   in for i = 0 to (cc.num_itemsets - 1) do
     (* Build that row of the action table *)
-    Item_set.iter
+    Set.iter
       (fun itm -> begin
         (* If dot is immediately before terminal, shift action. *)
         match terminal_after_dot cfg itm with
@@ -492,10 +463,10 @@ let build_tables cfg cc =
     List.iter
       (fun nt ->
         let new_itmst = goto cfg (Map.find i cc.itemsets) (NT nt) in
-        let new_itmst_repr = Item_set.choose new_itmst in
+        let new_itmst_repr = Set.choose new_itmst in
         let rec do_ix j =
           if j < cc.num_itemsets then
-            if Item_set.mem new_itmst_repr (Map.find i cc.itemsets) then
+            if Set.mem new_itmst_repr (Map.find i cc.itemsets) then
               gotos := Map.add (i,nt) j !gotos
             else
               do_ix (i+1)
