@@ -15,7 +15,7 @@ module FooParserGenerator = Parser_gen.Make (
 );;
 
 let () = begin
-  let s = FooParserGenerator.ItemSet.empty in
+  let s = FooParserGenerator.Item_set.empty in
   print_string (dump s);
   print_string (dump (List.of_enum (Queue.enum (Lex.prelex "foobar"))))
 end
