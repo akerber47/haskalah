@@ -1,4 +1,8 @@
 open Batteries
+;;
+
+(* Prints a debug statement to stderr, if debug is on *)
+val dbg : ('a, 'b BatInnerIO.output, unit, unit) format4 -> 'a
 
 (* Returns a list of the indices of all elements in the arary which satisfy the
  * predicate, in increasing order. *)
