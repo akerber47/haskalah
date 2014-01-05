@@ -31,8 +31,8 @@ type lexeme
 type ast
 
 type symbol =
-  | Terminal of term
-  | Nonterminal of nonterm
+  | T of term
+  | NT of nonterm
 
 type production = {
   lhs : nonterm;
@@ -152,8 +152,8 @@ type lexeme = Pga.lx
 type ast = Pga.ast
 
 type symbol =
-  | Terminal of term
-  | Nonterminal of nonterm
+  | T of term
+  | NT of nonterm
 
 type production = {
   lhs : nonterm;
@@ -251,8 +251,8 @@ let first_sets cfg =
         (* If we reach empty list, all nonterminals above us in the string had
          * an epsilon (empty) production. *)
         | [] -> { fs with has_epsilon = true }
-        | (Terminal t)::_ -> { fs with terms = Term_set.add t fs.terms }
-        | (Nonterminal nt)::ss -> begin
+        | (T t)::_ -> { fs with terms = Term_set.add t fs.terms }
+        | (NT nt)::ss -> begin
           (* XXX Grammar had better not be left-recursive (!) *)
           do_nonterm nt;
           let firstfs = Map.find nt !curmap in
@@ -285,8 +285,8 @@ let first_set_string fstable symbls =
   let rec first_set_string_acc syms fs =
     match syms with
     | [] -> { fs with has_epsilon = true }
-    | (Terminal t)::_ -> { fs with terms = Term_set.add t fs.terms }
-    | (Nonterminal nt)::ss ->
+    | (T t)::_ -> { fs with terms = Term_set.add t fs.terms }
+    | (NT nt)::ss ->
       let firstfs = Map.find nt fstable in
       (* If the first symbol is nonterminal (potentially) reducing to
        * epsilon, we also need to check the 2nd symbol, and so on -
@@ -306,7 +306,7 @@ let terminal_after_dot cfg itm =
   let rhs = cfg.productions.(itm.prod).rhs in
     if itm.dot < List.length rhs then
       match List.nth rhs itm.dot with
-      | (Terminal t) -> Some t
+      | (T t) -> Some t
       | _ -> None
     else
       None
@@ -326,7 +326,7 @@ let rec closure cfg itmst =
      * "could match this dot position") *)
     if itm.dot < List.length rhs then
       match List.drop itm.dot rhs with
-      | (Nonterminal nt)::rhsrest ->
+      | (NT nt)::rhsrest ->
         (* Add new items for that nonterminal expansion to the new itemset -
          * these are possible handles for the current position of our dot. We
          * just need to compute what the lookahead symbols after this
@@ -348,7 +348,7 @@ let rec closure cfg itmst =
                           still_adding := true
                         end)
               (first_set_string fstable
-                                (rhsrest @ [(Terminal itm.lookahead)])).terms)
+                                (rhsrest @ [(T itm.lookahead)])).terms)
           (Util.findi_all (fun prod -> prod.lhs = nt) cfg.productions)
       | _ -> ()
   in begin
@@ -433,7 +433,7 @@ let build_cc cfg =
         in
         Term_set.iter
           (fun t ->
-            let next_itmst = goto cfg itmst (Terminal t) in
+            let next_itmst = goto cfg itmst (T t) in
             (* Since all itemsets are closed, to check if we've already seen
              * this itemset it's enough to look up one representative. *)
             let next_itmst_repr = Item_set.choose next_itmst in
@@ -491,7 +491,7 @@ let build_tables cfg cc =
     (* Build that row of the goto table *)
     List.iter
       (fun nt ->
-        let new_itmst = goto cfg (Map.find i cc.itemsets) (Nonterminal nt) in
+        let new_itmst = goto cfg (Map.find i cc.itemsets) (NT nt) in
         let new_itmst_repr = Item_set.choose new_itmst in
         let rec do_ix j =
           if j < cc.num_itemsets then

@@ -26,8 +26,8 @@ type lexeme
 type ast
 
 type symbol =
-  | Terminal of term
-  | Nonterminal of nonterm
+  | T of term
+  | NT of nonterm
 
 type production = {
   lhs : nonterm;
