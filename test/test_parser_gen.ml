@@ -16,9 +16,9 @@ let check_sheep_ast src_toklist output_ast =
 ;;
 
 let test_sheep_basic _ = begin
-  check_sheep_ast [Baa] 1;
-  check_sheep_ast [Baa;Baa;Baa] 3;
-  check_sheep_ast [Baa;Baa;Baa;Baa;Baa;Baa] 6;
+  check_sheep_ast [Baa;EOF] 1;
+  check_sheep_ast [Baa;Baa;Baa;EOF] 3;
+  check_sheep_ast [Baa;Baa;Baa;Baa;Baa;Baa;EOF] 6;
 end
 ;;
 
