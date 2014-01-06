@@ -89,7 +89,7 @@ type item = {
  * (ie a terminal in the grammar). *)
 type cc = {
   itemsets : (int, item Set.t) Map.t; (* Store each itemset with an index... *)
-  gotos : (int * term, int) Map.t; (* so we can look up gotos by index *)
+  gotos : (int * symbol, int) Map.t; (* so we can look up gotos by index *)
   num_itemsets : int;
 }
 
@@ -190,7 +190,7 @@ type item = {
 
 type cc = {
   itemsets : (int, item Set.t) Map.t; (* Store each itemset with an index... *)
-  gotos : (int * term, int) Map.t; (* so we can look up gotos by index *)
+  gotos : (int * symbol, int) Map.t; (* so we can look up gotos by index *)
   num_itemsets : int;
 }
 
@@ -265,7 +265,7 @@ let cc_print cfg o cc = begin
   done;
   Printf.fprintf o "Gotos:\n";
   Map.print ~first:"" ~last:"\n" ~sep:",\n" ~kvsep:" -> "
-    (fun o (i,t) -> Printf.fprintf o "(%d,%a)" i tm_print t)
+    (fun o (i,s) -> Printf.fprintf o "(%d,%a)" i symbol_print s)
     (fun o i -> Printf.fprintf o "%d" i)
     o
     cc.gotos;
@@ -350,15 +350,19 @@ let first_set_string fstable symbls =
       { terms = Set.empty; has_epsilon = false; }
 
 (* Tiny helper function to check if the dot in an item immediately precedes a
- * terminal symbol, and if so return the terminal. *)
-let terminal_after_dot cfg itm =
+ * symbol, and if so return that symbol. *)
+let symbol_after_dot cfg itm =
   let rhs = cfg.productions.(itm.prod).rhs in
     if itm.dot < List.length rhs then
-      match List.nth rhs itm.dot with
-      | (T t) -> Some t
-      | _ -> None
+      (Some (List.nth rhs itm.dot))
     else
       None
+
+(* As above, but just for terminals *)
+let terminal_after_dot cfg itm =
+  match symbol_after_dot cfg itm with
+  | (Some (T t)) -> Some t
+  | _ -> None
 
 (* Compute the "nonterminal expansion closure" of an itemset. Basically, if
   * we're given a set of items we're in a state to receive, this computes
@@ -473,22 +477,22 @@ let build_cc cfg =
         !ix_new_itemset !ix_first_unprocessed;
       for ix = !ix_first_unprocessed to (!ix_new_itemset - 1) do begin
         let itmst = Map.find ix !cur_itemsets in
-        (* Look for terminals following dots among items in itmst. These will
-         * be the only possibilities that make (goto tmst t) nonempty. *)
+        (* Look for symbols s following dots among items in itmst. These will
+         * be the only possibilities that make (goto itmst s) nonempty. *)
         let next_gotos = Set.fold
-          (fun itm tset ->
-            match terminal_after_dot cfg itm with
-            | (Some t) -> Set.add t tset
-            | None -> tset)
+          (fun itm symset ->
+            match symbol_after_dot cfg itm with
+            | (Some s) -> Set.add s symset
+            | None -> symset)
           itmst
           Set.empty
-        (* Check whether goto(itmst,t) yields a *new* itemset, for each t, and
+        (* Check whether goto(itmst,s) yields a *new* itemset, for each s, and
          * if so add it to the itemset table. Either way, add this transition
          * to the goto table. *)
         in
         Set.iter
-          (fun t ->
-            let next_itmst = goto cfg itmst (T t) in
+          (fun s ->
+            let next_itmst = goto cfg itmst s in
             let next_ix = match lookup_itemset next_itmst with
             | (Some existing_ix) -> existing_ix
             | None -> begin
@@ -497,7 +501,7 @@ let build_cc cfg =
               !ix_new_itemset - 1
             end
             in
-            cur_gotos := Map.add (ix, t) next_ix !cur_gotos)
+            cur_gotos := Map.add (ix, s) next_ix !cur_gotos)
           next_gotos;
         ix_first_unprocessed := !ix_first_unprocessed + 1
       end done
@@ -527,13 +531,13 @@ let build_tables cfg cc =
             (* Check for already filled (but distinct!) entry -> error *)
             if Map.mem (i,t) !actions &&
                 (Map.find (i,t) !actions <>
-                  (Shift (Map.find (i,t) cc.gotos))) then
+                  (Shift (Map.find (i,(T t)) cc.gotos))) then
               raise (Parser_gen_error "Grammar conflict")
             else begin
               Util.dbg "Generated (%d, %a) -> Shift %d\n"
-                i tm_print t (Map.find (i,t) cc.gotos);
+                i tm_print t (Map.find (i,(T t)) cc.gotos);
               actions := Map.add (i,t)
-                                 (Shift (Map.find (i,t) cc.gotos))
+                                 (Shift (Map.find (i,(T t)) cc.gotos))
                                  !actions
             end
         | None -> ();
@@ -564,21 +568,20 @@ let build_tables cfg cc =
             end
       end)
       (Map.find i cc.itemsets);
-    (* Build that row of the goto table *)
-    List.iter
-      (fun nt ->
-        let new_itmst = goto cfg (Map.find i cc.itemsets) (NT nt) in
-        let rec do_ix j =
-          if j < cc.num_itemsets then
-            if Set.equal new_itmst (Map.find i cc.itemsets) then
-              gotos := Map.add (i,nt) j !gotos
-            else
-              do_ix (i+1)
-          else
-            assert false (* We should've already found all itemsets *)
-        in do_ix 0)
-      all_nonterms
   done;
+  (* We've basically already built the GOTO table when generating CC. Just need
+   * to prune some entries. *)
+  Map.iter
+    (fun (i,sym) j ->
+      match sym with
+      | (NT nt) -> gotos := Map.add (i,nt) j !gotos
+      | _ -> ())
+    cc.gotos;
+  Util.dbg "Pruned gotos to: %a\n"
+    (Map.print ~first:"\n" ~last:"\n" ~sep:",\n" ~kvsep:" -> "
+      (fun o (i,nt) -> Printf.fprintf o "(%d,%a)" i ntm_print nt)
+      (fun o i -> Printf.fprintf o "%d" i))
+    !gotos;
   (!actions, !gotos)
 
 let simulate cfg acts gotos lexemes =

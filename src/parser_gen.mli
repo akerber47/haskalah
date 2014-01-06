@@ -84,7 +84,7 @@ type item = {
  * (ie a terminal in the grammar). *)
 type cc = {
   itemsets : (int, item Set.t) Map.t; (* Store each itemset with an index... *)
-  gotos : (int * term, int) Map.t; (* so we can look up gotos by index *)
+  gotos : (int * symbol, int) Map.t; (* so we can look up gotos by index *)
   num_itemsets : int;
 }
 
