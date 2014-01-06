@@ -516,9 +516,7 @@ let build_cc cfg =
   end
 
 let build_tables cfg cc =
-  let all_nonterms =
-      List.unique (Array.to_list (Array.map (fun p -> p.lhs) cfg.productions))
-  and actions = ref Map.empty
+  let actions = ref Map.empty
   and gotos = ref Map.empty
   in for i = 0 to (cc.num_itemsets - 1) do
     (* Build that row of the action table *)
