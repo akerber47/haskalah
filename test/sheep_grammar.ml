@@ -12,6 +12,7 @@ type sheep_tm =
   | Baa
 type sheep_ntm =
   | SheepNoise
+  | Goal
 type sheep_lx = sheep_tm
 type sheep_ast = int
 
@@ -29,7 +30,10 @@ module Sheep_parser_gen = Parser_gen.Make (
       (fun o t -> match t with
                   | EOF -> Printf.fprintf o "EOF"
                   | Baa -> Printf.fprintf o "Baa")
-    let ntm_print = (fun o _ -> Printf.fprintf o "SheepNoise")
+    let ntm_print =
+      (fun o nt -> match nt with
+                   | SheepNoise -> Printf.fprintf o "SheepNoise"
+                   | Goal -> Printf.fprintf o "Goal")
     let lx_print = tm_print
     let ast_print = print_guess
   end
@@ -39,11 +43,18 @@ open Sheep_parser_gen
 ;;
 
 let sheep_cfg = {
-  goal = SheepNoise;
+  goal = Goal;
   productions =
-    [| { lhs = SheepNoise;
+    [| { lhs = Goal;
+         rhs = [NT SheepNoise];
+         semantic_action = (fun _ -> assert false); };
+       { lhs = SheepNoise;
          rhs = [T Baa; NT SheepNoise];
-         semantic_action = (fun [_;i] -> i+1) };
+         semantic_action =
+           (fun is ->
+             match is with
+             | [_;i] -> i+1
+             | _ -> assert false) };
        { lhs = SheepNoise;
          rhs = [T Baa];
          semantic_action = (fun _ -> 1) };

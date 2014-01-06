@@ -6,6 +6,7 @@ type sheep_tm =
   | Baa
 type sheep_ntm =
   | SheepNoise
+  | Goal
 type sheep_lx = sheep_tm
 type sheep_ast = int
 
