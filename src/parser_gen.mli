@@ -96,7 +96,8 @@ type action =
   | Shift of state
   (* Store index of production (in grammar list) we use to reduce. *)
   | Reduce of int
-  | Accept
+  (* Store index of goal production we use to accept *)
+  | Accept of int
 
 (* Stores the actions for the pushdown automaton to take upon receiving a
  * terminal in a state - either "shift" (push+transition to a new state) or

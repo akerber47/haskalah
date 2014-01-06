@@ -101,7 +101,8 @@ type action =
   | Shift of state
   (* Store index of production (in grammar list) we use to reduce. *)
   | Reduce of int
-  | Accept
+  (* Store index of goal production we use to accept *)
+  | Accept of int
 
 (* Stores the actions for the pushdown automaton to take upon receiving a
  * terminal in a state - either "shift" (push+transition to a new state) or
@@ -201,7 +202,7 @@ type state = int
 type action =
   | Shift of state
   | Reduce of int
-  | Accept
+  | Accept of int
 
 type action_table = (state * term, action) Map.t
 type goto_table = (state * nonterm, state) Map.t
@@ -547,12 +548,13 @@ let build_tables cfg cc =
               itm.lookahead = Pga.eof then
             (* Check for already filled (but distinct!) entry -> error *)
             if Map.mem (i,itm.lookahead) !actions &&
-                (Map.find (i,itm.lookahead) !actions <> Accept) then
+                (Map.find (i,itm.lookahead) !actions <> (Accept itm.prod)) then
               raise (Parser_gen_error "Grammar conflict")
             else begin
-              Util.dbg "Generated (%d, %a) -> Accept\n"
-                i tm_print itm.lookahead;
-              actions := Map.add (i,itm.lookahead) Accept !actions
+              Util.dbg "Generated (%d, %a) -> Accept [%d] %a\n"
+                i tm_print itm.lookahead itm.prod
+                production_print cfg.productions.(itm.prod);
+              actions := Map.add (i,itm.lookahead) (Accept itm.prod) !actions
             end
           else
             (* Check for already filled (but distinct!) entry -> error *)
@@ -637,16 +639,20 @@ let simulate cfg acts gotos lexemes =
                   end
                   else
                     assert false (* Shouldn't have reached empty goto entry *)
-              | Accept -> begin
-                  (* Should never have any tokens after EOF *)
-                  ignore(Queue.take temp_lexemes);
-                  assert (Queue.is_empty temp_lexemes);
-                  Util.dbg "Action: Accept\n";
-                  (* Should have exactly 1 AST remaining when accepting *)
-                  match asts with
-                  | ast::[] -> ast
-                  | _ -> assert false
-              end
+              | (Accept prod_i) ->
+                  let prd = cfg.productions.(prod_i) in
+                  let arity = List.length prd.rhs in begin
+                    (* Should never have any tokens after EOF *)
+                    ignore(Queue.take temp_lexemes);
+                    assert (Queue.is_empty temp_lexemes);
+                    (* Should have exactly arity ASTs remaining on accept *)
+                    assert (arity = List.length asts);
+                    Util.dbg "Action: Accept [%d] %a\n"
+                      prod_i production_print prd;
+                    (* Call the final (goal production) semantic action on all
+                     * the remaining ASTs *)
+                    prd.semantic_action (List.rev asts)
+                  end
             else
               (* If no action found, must have received invalid token. *)
               raise (Parser_gen_error "Syntax error")
