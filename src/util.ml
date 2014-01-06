@@ -6,8 +6,10 @@ let debug = true
 
 let dbg fmt4 =
   let print_if_debug s =
-    if debug then
-      output_string stderr s
+    if debug then begin
+      output_string stderr s;
+      flush stderr
+    end
     else
       ()
   in Printf.ksprintf2 print_if_debug fmt4
