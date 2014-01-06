@@ -14,6 +14,11 @@ module type Parse_gen_able = sig
   val lx_to_tm : lx -> tm (* Extract terminal symbol info from lexeme *)
   val eof : tm (* End of file terminal *)
   type ast (* AST output for generated parser *)
+  (* Functions for printing debug output *)
+  val tm_print : 'a BatIO.output -> tm -> unit
+  val ntm_print : 'a BatIO.output -> ntm -> unit
+  val lx_print : 'a BatIO.output -> lx -> unit
+  val ast_print : 'a BatIO.output -> ast -> unit
 end;;
 
 (* Output type for Make. A fully typed-out parser generator. *)

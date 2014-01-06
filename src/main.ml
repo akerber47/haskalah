@@ -9,8 +9,12 @@ module Foo_pg = Parser_gen.Make (
     let ntm_compare = compare
     type lx = int
     let lx_to_tm = identity
-    type ast = int
     let eof = 0
+    type ast = int
+    let tm_print = print_guess
+    let ntm_print = print_guess
+    let lx_print = print_guess
+    let ast_print = print_guess
   end
 );;
 

@@ -19,6 +19,11 @@ module type Parse_gen_able = sig
   val lx_to_tm : lx -> tm (* Extract terminal symbol info from lexeme *)
   val eof : tm (* End of file terminal *)
   type ast (* AST output for generated parser *)
+  (* Functions for printing debug output *)
+  val tm_print : 'a BatIO.output -> tm -> unit
+  val ntm_print : 'a BatIO.output -> ntm -> unit
+  val lx_print : 'a BatIO.output -> lx -> unit
+  val ast_print : 'a BatIO.output -> ast -> unit
 end;;
 
 (* Output type for Make. A fully typed-out parser generator. *)
@@ -146,6 +151,10 @@ type term = Pga.tm
 type nonterm = Pga.ntm
 type lexeme = Pga.lx
 type ast = Pga.ast
+let tm_print = Pga.tm_print
+let ntm_print = Pga.ntm_print
+let lx_print = Pga.lx_print
+let ast_print = Pga.ast_print
 
 type symbol =
   | T of term
@@ -199,6 +208,71 @@ type goto_table = (state * nonterm, state) Map.t
 
 exception Parser_gen_error of string
 
+(* ---- Debug print functions ---- *)
+(* <type>_print prints <type> nicely for debugging purposes. Print function for
+ * type <type> has type 'a BatIO.output -> <type> -> unit. *)
+
+(* Don't identify terminals vs nonterminals explicitly when printing - should
+ * be able to tell apart from their printed names. *)
+let symbol_print o sym =
+  match sym with
+  | T t -> tm_print o t
+  | NT nt -> ntm_print o nt
+
+let production_print o pr = begin
+  Printf.fprintf o "%a ->" ntm_print pr.lhs;
+  List.iter
+    (fun sym -> Printf.fprintf o " %a" symbol_print sym)
+    pr.rhs
+end
+
+let grammar_print o cfg = begin
+  Printf.fprintf o "\n--- Grammar ---\n";
+  Printf.fprintf o "Goal symbol: %a\n" ntm_print cfg.goal;
+  Printf.fprintf o "Productions:\n";
+  for i = 0 to (Array.length cfg.productions - 1) do
+    Printf.fprintf o "[%d] %a\n" i production_print cfg.productions.(i)
+  done;
+  Printf.fprintf o "--- End Grammar ---\n"
+end
+
+let first_set_print o fs = begin
+  Set.print ~first:"{ " ~last:"" ~sep:", " tm_print o fs.terms;
+  if fs.has_epsilon then
+    Printf.fprintf o ", epsilon }"
+  else
+    Printf.fprintf o " }"
+end
+
+let item_print cfg o itm =
+  Printf.fprintf o "([%d] %a, %d, %a)"
+    itm.prod
+    production_print cfg.productions.(itm.prod)
+    itm.dot
+    tm_print itm.lookahead
+
+let itemset_print cfg o itmst =
+  Set.print ~first:"\n{ " ~last:" }\n" ~sep:",\n  " (item_print cfg) o itmst
+
+let cc_print cfg o cc = begin
+  Printf.fprintf o "\n--- Canonical Collection ---\n";
+  Printf.fprintf o "Number of itemsets: %d\n" cc.num_itemsets;
+  Printf.fprintf o "Itemsets:\n";
+  for i = 0 to (cc.num_itemsets - 1) do
+    Printf.fprintf o "[%d] %a\n" i
+      (itemset_print cfg)
+      (Map.find i cc.itemsets)
+  done;
+  Printf.fprintf o "Gotos:\n";
+  Map.print ~first:"" ~last:"" ~sep:",\n" ~kvsep:" -> "
+    (fun o (i,t) -> Printf.fprintf o "(%d,%a)" i tm_print t)
+    (fun o i -> Printf.fprintf o "%d" i)
+    o
+    cc.gotos;
+  Printf.fprintf o "--- End Canonical Collection ---\n"
+end
+(* ---- End debug print functions ---- *)
+
 (* Return an array of all possible right-hand sides of productions of the given
  * nonterminal. *)
 let getrhss cfg nt =
@@ -247,7 +321,12 @@ let first_sets cfg =
       curmap := Map.add nextnt nextfs !curmap
     end
   in begin
+    Util.dbg "Computing first sets for CFG %a\n" grammar_print cfg;
     List.iter do_nonterm all_nonterms;
+    Util.dbg "Found first sets as follows: %a\n"
+      (Map.print ~first:"" ~last:"" ~sep:",\n" ~kvsep:" -> "
+        ntm_print first_set_print)
+      !curmap;
     !curmap
   end
 
@@ -323,11 +402,14 @@ let rec closure cfg itmst =
           (Util.findi_all (fun prod -> prod.lhs = nt) cfg.productions)
       | _ -> ()
   in begin
+    Util.dbg "Computing closure for %a" (itemset_print cfg) itmst;
     Set.iter do_item itmst;
     if !still_adding then
       closure cfg !new_itmst
-    else
+    else begin
+      Util.dbg "Computed closure = %a" (itemset_print cfg) itmst;
       itmst
+    end
   end
 
 (* Compute the "goto" of an item set on a grammar symbol. This computes the
