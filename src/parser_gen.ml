@@ -626,8 +626,13 @@ let simulate cfg acts gotos lexemes =
                       ((Map.find (goto_from_st, prd.lhs) gotos)::
                         (List.drop arity (s::sts)))
                       (* Pop the corresponding number of ASTs and push the
-                       * result of the semantic action. *)
-                      ((prd.semantic_action (List.take arity asts))::asts)
+                       * result of the semantic action. Note that the semantic
+                       * action takes in the ASTs of rhs elements in
+                       * their left-to-right order in the grammar, so we need
+                       * to reverse relative to their order on the stack. *)
+                      ((prd.semantic_action
+                          (List.rev (List.take arity asts)))::
+                        (List.drop arity asts))
                   end
                   else
                     assert false (* Shouldn't have reached empty goto entry *)
