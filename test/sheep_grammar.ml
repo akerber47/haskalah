@@ -30,7 +30,7 @@ module Sheep_parser_gen = Parser_gen.Make (
                   | EOF -> Printf.fprintf o "EOF"
                   | Baa -> Printf.fprintf o "Baa")
     let ntm_print = (fun o _ -> Printf.fprintf o "SheepNoise")
-    let lx_print = print_guess
+    let lx_print = tm_print
     let ast_print = print_guess
   end
 )

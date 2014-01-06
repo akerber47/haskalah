@@ -594,42 +594,56 @@ let simulate cfg acts gotos lexemes =
     if Queue.is_empty temp_lexemes then
       assert false (* Should have hit EOF and either accepted or rejected *)
     else
-      let nextlx = Queue.take temp_lexemes in
-      match states with
-      | [] -> assert false (* Popped too much *)
-      | s::sts ->
-          if Map.mem (s,Pga.lx_to_tm nextlx) acts then
-            match Map.find (s,Pga.lx_to_tm nextlx) acts with
-            | (Shift nexts) ->
+      let nextlx = Queue.take temp_lexemes in begin
+        Util.dbg "Processing next lexeme: %a\n" lx_print nextlx;
+        Util.dbg "State stack: %a\n"
+          (List.print ~first:"$ " ~last:"" ~sep:" " print_guess)
+          (List.rev states);
+        Util.dbg "AST stack: %a\n"
+          (List.print ~first:"$ " ~last:"" ~sep:" " ast_print)
+          (List.rev asts);
+        match states with
+        | [] -> assert false (* Popped too much *)
+        | s::sts ->
+            if Map.mem (s,Pga.lx_to_tm nextlx) acts then
+              match Map.find (s,Pga.lx_to_tm nextlx) acts with
+              | (Shift nexts) -> begin
+                Util.dbg "Action: Shift %d\n" nexts;
                 (* Push the current terminal (as AST), and next state *)
                 do_nextstate (nexts::(s::sts))
                              ((cfg.terminal_action nextlx)::asts)
-            | (Reduce prod_i) ->
-                let prd = cfg.productions.(prod_i) in
-                let arity = List.length prd.rhs in
-                let goto_from_st = List.nth (s::sts) arity in
-                if Map.mem (goto_from_st, prd.lhs) gotos then
-                  do_nextstate
-                    (* Pop a number of states equal to the arity of
-                     * the production, then push the goto value. *)
-                    ((Map.find (goto_from_st, prd.lhs) gotos)::
-                      (List.drop arity (s::sts)))
-                    (* Pop the corresponding number of ASTs and push the result
-                     * of the semantic action. *)
-                    ((prd.semantic_action (List.take arity asts))::asts)
-                else
-                  assert false (* Shouldn't have empty reachable goto entry *)
-            | Accept -> begin
-                (* Should never have any tokens after EOF *)
-                assert (Queue.is_empty temp_lexemes);
-                (* Should have exactly 1 AST remaining when ready to accept *)
-                match asts with
-                | ast::[] -> ast
-                | _ -> assert false
-            end
-          else
-            (* If no action found, must have received invalid token. *)
-            raise (Parser_gen_error "Syntax error")
+              end
+              | (Reduce prod_i) ->
+                  let prd = cfg.productions.(prod_i) in
+                  let arity = List.length prd.rhs in
+                  let goto_from_st = List.nth (s::sts) arity in
+                  if Map.mem (goto_from_st, prd.lhs) gotos then begin
+                    Util.dbg "Action: Reduce [%d] %a\n"
+                      prod_i production_print prd;
+                    do_nextstate
+                      (* Pop a number of states equal to the arity of
+                       * the production, then push the goto value. *)
+                      ((Map.find (goto_from_st, prd.lhs) gotos)::
+                        (List.drop arity (s::sts)))
+                      (* Pop the corresponding number of ASTs and push the
+                       * result of the semantic action. *)
+                      ((prd.semantic_action (List.take arity asts))::asts)
+                  end
+                  else
+                    assert false (* Shouldn't have reached empty goto entry *)
+              | Accept -> begin
+                  (* Should never have any tokens after EOF *)
+                  assert (Queue.is_empty temp_lexemes);
+                  Util.dbg "Action: Accept\n";
+                  (* Should have exactly 1 AST remaining when accepting *)
+                  match asts with
+                  | ast::[] -> ast
+                  | _ -> assert false
+              end
+            else
+              (* If no action found, must have received invalid token. *)
+              raise (Parser_gen_error "Syntax error")
+      end
   (* Start in state 0 *)
   in do_nextstate [0] []
 
