@@ -273,55 +273,56 @@ let cc_print cfg o cc = begin
 end
 (* ---- End debug print functions ---- *)
 
-(* Return an array of all possible right-hand sides of productions of the given
- * nonterminal. *)
-let getrhss cfg nt =
-  Array.map (fun p -> p.rhs)
-            (Array.filter (fun p -> p.lhs = nt) cfg.productions)
-
 let first_sets cfg =
   let curmap = ref Map.empty
-  and all_nonterms =
-      List.unique (Array.to_list (Array.map (fun p -> p.lhs) cfg.productions))
-  in let rec do_nonterm nextnt =
-    if Map.mem nextnt !curmap then
-      ()
-    else begin
-      (* Get all possible RHS productions *)
-      let rhss = getrhss cfg nextnt
-      (* Find the possible first set elems off a given string (symbol list), and
-       * add them into the given first set. Return new first set. *)
-      in let rec add_first_from_str fs symbls =
-        match symbls with
-        (* If we reach empty list, all nonterminals above us in the string had
-         * an epsilon (empty) production. *)
-        | [] -> { fs with has_epsilon = true }
-        | (T t)::_ -> { fs with terms = Set.add t fs.terms }
-        | (NT nt)::ss -> begin
-          (* XXX Grammar had better not be left-recursive (!) *)
-          do_nonterm nt;
-          let firstfs = Map.find nt !curmap in
-          (* If the first symbol is nonterminal (potentially) reducing to
-           * epsilon, we also need to check the 2nd symbol, and so on -
-           * otherwise we can just look at the possible terminals. *)
-          if firstfs.has_epsilon then
-            add_first_from_str
-                { fs with terms = Set.union firstfs.terms fs.terms }
-                ss
-          else
-            { fs with terms = Set.union firstfs.terms fs.terms }
-        end
-      in
-      (* Find all possible first set elems from productions of this nonterminal
-       * in the grammar. *)
-      let nextfs = Array.fold_left add_first_from_str
-          { terms = Set.empty; has_epsilon = false; } rhss
-      in
-      (* And add the resulting first set to the map. ("memoize") *)
-      curmap := Map.add nextnt nextfs !curmap
-    end
+  and still_adding = ref true
   in begin
-    List.iter do_nonterm all_nonterms;
+    (* Initialize all the first sets. *)
+    for i = 0 to (Array.length cfg.productions - 1) do
+      let nextprod = cfg.productions.(i) in
+        curmap := Map.add
+                    nextprod.lhs
+                    { terms = Set.empty; has_epsilon = false; }
+                    !curmap
+    done;
+    while !still_adding do
+      still_adding := false;
+      (* Get all possible productions of any nonterminal. *)
+      for i = 0 to (Array.length cfg.productions - 1) do
+        let nextprod = cfg.productions.(i) in
+        let curfs = Map.find nextprod.lhs !curmap in
+        (* Finds the possible first set elems off a given string (symbol list),
+         * based on the currently computed first sets for nonterminals, and add
+         * them into the given first set. Return new first set. *)
+        let rec add_first_from_str fs symbls =
+          match symbls with
+          (* If we reach empty list, all nonterminals above us in the string
+           * had an epsilon (empty) production. *)
+          | [] -> { fs with has_epsilon = true }
+          | (T t)::_ -> { fs with terms = Set.add t fs.terms }
+          | (NT nt)::ss ->
+            (* Just check based on currently computed first sets of
+             * nonterminals, to avoid infinite loop on left recursion. *)
+            let firstfs = Map.find nt !curmap in
+            (* If the first symbol is nonterminal (potentially) reducing to
+             * epsilon, we also need to check the 2nd symbol, and so on -
+             * otherwise we can just look at the possible terminals. *)
+            if firstfs.has_epsilon then
+              add_first_from_str
+                  { fs with terms = Set.union firstfs.terms fs.terms }
+                ss
+            else
+              { fs with terms = Set.union firstfs.terms fs.terms }
+        in
+        let nextfs = add_first_from_str curfs nextprod.rhs in
+        (* Check if the first set has changed, if so add it to the map. *)
+        if not (Set.equal nextfs.terms curfs.terms) ||
+           (nextfs.has_epsilon <> curfs.has_epsilon) then begin
+          still_adding := true;
+          curmap := Map.add nextprod.lhs nextfs !curmap
+        end
+      done
+    done;
     Util.dbg "Found first sets as follows: %a\n"
       (Map.print ~first:"" ~last:"" ~sep:",\n" ~kvsep:" -> "
         ntm_print first_set_print)
