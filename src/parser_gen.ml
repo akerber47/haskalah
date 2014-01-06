@@ -441,13 +441,13 @@ let build_cc cfg =
    * going to give the next itemset we add. *)
   and ix_first_unprocessed = ref 0
   and ix_new_itemset = ref 1
-  (* Small helper function: tries to find an item among itemsets we've already
+  (* Small helper function: tries to find an itemset among itemsets we've already
    * added. Returns Some int (the index of the itemset) if found, None if this
-   * item is new. *)
-  in let lookup_item itm =
+   * itemset is new. *)
+  in let lookup_itemset itmst =
     let rec do_ix i =
       if i < !ix_new_itemset then
-        if Set.mem itm (Map.find i !cur_itemsets) then
+        if Set.equal itmst (Map.find i !cur_itemsets) then
           Some i
         else
           do_ix (i+1)
@@ -487,10 +487,7 @@ let build_cc cfg =
         Set.iter
           (fun t ->
             let next_itmst = goto cfg itmst (T t) in
-            (* Since all itemsets are closed, to check if we've already seen
-             * this itemset it's enough to look up one representative. *)
-            let next_itmst_repr = Set.choose next_itmst in
-            let next_ix = match lookup_item next_itmst_repr with
+            let next_ix = match lookup_itemset next_itmst with
             | (Some existing_ix) -> existing_ix
             | None -> begin
               cur_itemsets := Map.add !ix_new_itemset next_itmst !cur_itemsets;
@@ -545,10 +542,9 @@ let build_tables cfg cc =
     List.iter
       (fun nt ->
         let new_itmst = goto cfg (Map.find i cc.itemsets) (NT nt) in
-        let new_itmst_repr = Set.choose new_itmst in
         let rec do_ix j =
           if j < cc.num_itemsets then
-            if Set.mem new_itmst_repr (Map.find i cc.itemsets) then
+            if Set.equal new_itmst (Map.find i cc.itemsets) then
               gotos := Map.add (i,nt) j !gotos
             else
               do_ix (i+1)
