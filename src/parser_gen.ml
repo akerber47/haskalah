@@ -321,7 +321,6 @@ let first_sets cfg =
       curmap := Map.add nextnt nextfs !curmap
     end
   in begin
-    Util.dbg "Computing first sets for CFG %a\n" grammar_print cfg;
     List.iter do_nonterm all_nonterms;
     Util.dbg "Found first sets as follows: %a\n"
       (Map.print ~first:"" ~last:"" ~sep:",\n" ~kvsep:" -> "
@@ -470,6 +469,8 @@ let build_cc cfg =
     (* Now, repeatedly iterate over all unprocessed itemsets until there are no
      * longer any new itemsets being added. *)
     while !ix_first_unprocessed < !ix_new_itemset do
+      Util.dbg "Have built %d itemsets, %d processed already\n"
+        !ix_new_itemset !ix_first_unprocessed;
       for ix = !ix_first_unprocessed to (!ix_new_itemset - 1) do begin
         let itmst = Map.find ix !cur_itemsets in
         (* Look for terminals following dots among items in itmst. These will
@@ -519,16 +520,20 @@ let build_tables cfg cc =
     (* Build that row of the action table *)
     Set.iter
       (fun itm -> begin
+        Util.dbg "Generating action entry for item %a\n" (item_print cfg) itm;
         (* If dot is immediately before terminal, shift action. *)
         match terminal_after_dot cfg itm with
         | (Some t) ->
             (* Check for already filled entry (error) *)
             if Map.mem (i,t) !actions then
               raise (Parser_gen_error "Shift-reduce conflict")
-            else
+            else begin
+              Util.dbg "Generated (%d, %a) -> Shift %d\n"
+                i tm_print t (Map.find (i,t) cc.gotos);
               actions := Map.add (i,t)
                                  (Shift (Map.find (i,t) cc.gotos))
                                  !actions
+            end
         | None -> ();
         (* If dot is at end of production, reduce action on lookahead. *)
         if itm.dot = List.length cfg.productions.(itm.prod).rhs then
@@ -537,9 +542,14 @@ let build_tables cfg cc =
             raise (Parser_gen_error "Shift-reduce or reduce-reduce conflict")
           (* Unless it's the goal production with EOF, in which case accept. *)
           else if cfg.productions.(itm.prod).lhs = cfg.goal &&
-              itm.lookahead = Pga.eof then
+              itm.lookahead = Pga.eof then begin
+            Util.dbg "Generated (%d, %a) -> Accept\n" i tm_print itm.lookahead;
             actions := Map.add (i,itm.lookahead) Accept !actions
+          end
           else
+            Util.dbg "Generated (%d, %a) -> Reduce [%d] %a\n"
+              i tm_print itm.lookahead itm.prod
+              production_print cfg.productions.(itm.prod);
             actions := Map.add (i,itm.lookahead) (Reduce itm.prod) !actions;
       end)
       (Map.find i cc.itemsets);
