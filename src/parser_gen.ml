@@ -592,7 +592,7 @@ let simulate cfg acts gotos lexemes =
     if Queue.is_empty temp_lexemes then
       assert false (* Should have hit EOF and either accepted or rejected *)
     else
-      let nextlx = Queue.take temp_lexemes in begin
+      let nextlx = Queue.peek temp_lexemes in begin
         Util.dbg "Processing next lexeme: %a\n" lx_print nextlx;
         Util.dbg "State stack: %a\n"
           (List.print ~first:"$ " ~last:"" ~sep:" " print_guess)
@@ -607,6 +607,8 @@ let simulate cfg acts gotos lexemes =
               match Map.find (s,Pga.lx_to_tm nextlx) acts with
               | (Shift nexts) -> begin
                 Util.dbg "Action: Shift %d\n" nexts;
+                (* Only on a shift do we actually take the lexeme off *)
+                ignore(Queue.take temp_lexemes);
                 (* Push the current terminal (as AST), and next state *)
                 do_nextstate (nexts::(s::sts))
                              ((cfg.terminal_action nextlx)::asts)
@@ -631,6 +633,7 @@ let simulate cfg acts gotos lexemes =
                     assert false (* Shouldn't have reached empty goto entry *)
               | Accept -> begin
                   (* Should never have any tokens after EOF *)
+                  ignore(Queue.take temp_lexemes);
                   assert (Queue.is_empty temp_lexemes);
                   Util.dbg "Action: Accept\n";
                   (* Should have exactly 1 AST remaining when accepting *)
