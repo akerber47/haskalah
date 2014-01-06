@@ -264,7 +264,7 @@ let cc_print cfg o cc = begin
       (Map.find i cc.itemsets)
   done;
   Printf.fprintf o "Gotos:\n";
-  Map.print ~first:"" ~last:"" ~sep:",\n" ~kvsep:" -> "
+  Map.print ~first:"" ~last:"\n" ~sep:",\n" ~kvsep:" -> "
     (fun o (i,t) -> Printf.fprintf o "(%d,%a)" i tm_print t)
     (fun o i -> Printf.fprintf o "%d" i)
     o
@@ -456,6 +456,7 @@ let build_cc cfg =
     in do_ix 0
   in
   begin
+    Util.dbg "Building CC for grammar %a\n" grammar_print cfg;
     (* Start by adding the 0th itemset, corresponding to the start state. *)
     let itmst_zero = closure cfg (List.fold_left
       (* In the start state, we want to match the goal symbol somehow
@@ -500,6 +501,10 @@ let build_cc cfg =
         ix_first_unprocessed := !ix_first_unprocessed + 1
       end done
     done;
+    Util.dbg "Built CC %a\n" (cc_print cfg)
+      { itemsets = !cur_itemsets;
+        gotos = !cur_gotos;
+        num_itemsets = !ix_new_itemset; };
     { itemsets = !cur_itemsets;
       gotos = !cur_gotos;
       num_itemsets = !ix_new_itemset; }
