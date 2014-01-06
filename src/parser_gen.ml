@@ -524,9 +524,11 @@ let build_tables cfg cc =
         (* If dot is immediately before terminal, shift action. *)
         match terminal_after_dot cfg itm with
         | (Some t) ->
-            (* Check for already filled entry (error) *)
-            if Map.mem (i,t) !actions then
-              raise (Parser_gen_error "Shift-reduce conflict")
+            (* Check for already filled (but distinct!) entry -> error *)
+            if Map.mem (i,t) !actions &&
+                (Map.find (i,t) !actions <>
+                  (Shift (Map.find (i,t) cc.gotos))) then
+              raise (Parser_gen_error "Grammar conflict")
             else begin
               Util.dbg "Generated (%d, %a) -> Shift %d\n"
                 i tm_print t (Map.find (i,t) cc.gotos);
@@ -537,20 +539,29 @@ let build_tables cfg cc =
         | None -> ();
         (* If dot is at end of production, reduce action on lookahead. *)
         if itm.dot = List.length cfg.productions.(itm.prod).rhs then
-          (* Check for already filled entry (error) *)
-          if Map.mem (i,itm.lookahead) !actions then
-            raise (Parser_gen_error "Shift-reduce or reduce-reduce conflict")
           (* Unless it's the goal production with EOF, in which case accept. *)
-          else if cfg.productions.(itm.prod).lhs = cfg.goal &&
-              itm.lookahead = Pga.eof then begin
-            Util.dbg "Generated (%d, %a) -> Accept\n" i tm_print itm.lookahead;
-            actions := Map.add (i,itm.lookahead) Accept !actions
-          end
+          if cfg.productions.(itm.prod).lhs = cfg.goal &&
+              itm.lookahead = Pga.eof then
+            (* Check for already filled (but distinct!) entry -> error *)
+            if Map.mem (i,itm.lookahead) !actions &&
+                (Map.find (i,itm.lookahead) !actions <> Accept) then
+              raise (Parser_gen_error "Grammar conflict")
+            else begin
+              Util.dbg "Generated (%d, %a) -> Accept\n"
+                i tm_print itm.lookahead;
+              actions := Map.add (i,itm.lookahead) Accept !actions
+            end
           else
-            Util.dbg "Generated (%d, %a) -> Reduce [%d] %a\n"
-              i tm_print itm.lookahead itm.prod
-              production_print cfg.productions.(itm.prod);
-            actions := Map.add (i,itm.lookahead) (Reduce itm.prod) !actions;
+            (* Check for already filled (but distinct!) entry -> error *)
+            if Map.mem (i,itm.lookahead) !actions &&
+                (Map.find (i,itm.lookahead) !actions <> (Reduce itm.prod)) then
+              raise (Parser_gen_error "Grammar conflict")
+            else begin
+              Util.dbg "Generated (%d, %a) -> Reduce [%d] %a\n"
+                i tm_print itm.lookahead itm.prod
+                production_print cfg.productions.(itm.prod);
+              actions := Map.add (i,itm.lookahead) (Reduce itm.prod) !actions;
+            end
       end)
       (Map.find i cc.itemsets);
     (* Build that row of the goto table *)
@@ -571,6 +582,7 @@ let build_tables cfg cc =
   (!actions, !gotos)
 
 let simulate cfg acts gotos lexemes =
+  Util.dbg "Starting simulation\n";
   (* Don't modify input queue *)
   let temp_lexemes = Queue.copy lexemes in
   (* Pass along stack of states, stack of ASTs. Represent each stack with a
