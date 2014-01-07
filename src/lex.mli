@@ -52,6 +52,10 @@ type prelexeme = {
   endix     : int;    (* Ending index, points *after* last char. *)
 }
 
+(** For debugging purposes. *)
+val token_print : 'a BatIO.output -> token -> unit
+val lexeme_print : 'a BatIO.output -> lexeme -> unit
+
 (** Compute the indent level of the given character index in the given source
  * string. Uses same line break conventions, and 8 space, aligned tabs. *)
 val compute_indent : string -> int -> int

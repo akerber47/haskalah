@@ -56,6 +56,72 @@ type prelexeme = {
 
 (* --- END DUPLICATED TYPES from mli --- *)
 
+let token_print o t =
+  let s =
+    match t with
+    | EOF -> "EOF"
+    | VarId -> "VarId"
+    | ConId -> "ConId"
+    | VarSym -> "VarSym"
+    | ConSym -> "ConSym"
+    | QVarId -> "QVarId"
+    | QConId -> "QConId"
+    | QVarSym -> "QVarSym"
+    | QConSym -> "QConSym"
+    | IntLit -> "IntLit"
+    | FloatLit -> "FloatLit"
+    | CharLit -> "CharLit"
+    | StringLit -> "StringLit"
+    | RCase -> "RCase"
+    | RClass -> "RClass"
+    | RData -> "RData"
+    | RDefault -> "RDefault"
+    | RDeriving -> "RDeriving"
+    | RDo -> "RDo"
+    | RElse -> "RElse"
+    | RIf -> "RIf"
+    | RImport -> "RImport"
+    | RIn -> "RIn"
+    | RInfix -> "RInfix"
+    | RInfixl -> "RInfixl"
+    | RInfixr -> "RInfixr"
+    | RInstance -> "RInstance"
+    | RLet -> "RLet"
+    | RModule -> "RModule"
+    | RNewtype -> "RNewtype"
+    | ROf -> "ROf"
+    | RThen -> "RThen"
+    | RType -> "RType"
+    | RWhere -> "RWhere"
+    | RUnderscore -> "RUnderscore"
+    | RDotDot -> "RDotDot"
+    | RColon -> "RColon"
+    | RColonColon -> "RColonColon"
+    | REquals -> "REquals"
+    | RBackslash -> "RBackslash"
+    | RPipe -> "RPipe"
+    | RLArrowDash -> "RLArrowDash"
+    | RDashRArrow -> "RDashRArrow"
+    | RAt -> "RAt"
+    | RTilde -> "RTilde"
+    | REqualsRArrow -> "REqualsRArrow"
+    | LParen -> "LParen"
+    | RParen -> "RParen"
+    | LSquare -> "LSquare"
+    | RSquare -> "RSquare"
+    | LCurly -> "LCurly"
+    | RCurly -> "RCurly"
+    | Comma -> "Comma"
+    | Semicolon -> "Semicolon"
+    | Backquote -> "Backquote"
+  in Printf.fprintf o "%s" s
+;;
+
+let lexeme_print o l =
+  Printf.fprintf o "(%a \"%s\" %d(%d,%d))"
+    token_print l.token l.contents l.startraw l.startline l.startcol
+;;
+
 
 let islinebreak = function
   | '\r' | '\n' | '\x0c' -> true
