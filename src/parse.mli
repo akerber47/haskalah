@@ -1,16 +1,137 @@
 open Batteries
 
-(* Abstract syntax tree for Haskell 98. Copy of large chunks of Ch 3 of the
- * Report. *)
+(* Abstract syntax tree for Haskell 98. Basically, a giant translation of the
+ * Haskell grammar into ocaml types. *)
+
+type tmodule = {
+  tmodule_id : tmodid option;
+  tmodule_exports : (texport list) option;
+  tmodule_body : tbody;
+}
+
+and tbody = {
+  tbody_imports : (timpdecl list) option;
+  tbody_decls : (ttopdecl list) option;
+}
+
+and texport =
+  | Texport_var of tqvar
+  | Texport_type of texport_type
+  | Texport_class of texport_class
+  | Texport_module of tmodid
+
+and texport_type = {
+  texport_type_name : tqtycon;
+  texport_type_cons : (tcname list) option;
+}
+
+and texport_class = {
+  texport_class_name : tqtycls;
+  texport_class_methods : (tqvar list) option;
+}
+
+and timpdecl = {
+  timpdecl_qualified : bool;
+  timpdecl_id : tmodid;
+  timpdecl_as : tmodid option;
+  timpdecl_hiding : bool;
+  timpdecl_spec : (timport list) option;
+}
+
+and timport =
+  | Timport_var of tvar
+  | Timport_type of timport_type
+  | Timport_class of timport_class
+and timport_type = {
+  timport_type_name : ttycon;
+  timport_type_cons : (tcname list) option;
+}
+and timport_class = {
+  timport_class_name : ttycls;
+  timport_class_methods : (tvar list) option;
+}
+
+and tcname =
+  | Tcname_var of tvar
+  | Tcname_con of tcon
+
+and ttopdecl =
+  | Ttopdecl_type of ttopdecl_type
+  | Ttopdecl_data of ttopdecl_data
+  | Ttopdecl_newtype of ttopdecl_newtype
+  | Ttopdecl_class of ttopdecl_class
+  | Ttopdecl_instance of ttopdecl_instance
+  | Ttopdecl_default of ttype list
+  | Ttopdecl_decl of tdecl
+and ttopdecl_type = {
+  ttopdecl_type_lhs : tsimpletype;
+  ttopdecl_type_rhs : ttype;
+}
+and ttopdecl_data = {
+  ttopdecl_data_context
+
 type ast =
-  Foo | Bar
-(* TODO... *)
+  | ASTmodule of tmodule
+  | ASTbody of tbody
+  | ASTexport of texport
+  | ASTimpdecl of timpdecl
+  | ASTimport of timport
+  | ASTcname of tcname
+  | ASTtopdecl of ttopdecl
+  | ASTdecl of tdecl
+  | ASTcdecl of tcdecl
+  | ASTidecl of tidecl
+  | ASTgendecl of tgendecl
+  | ASTfixity of tfixity
+  | ASTtype of ttype
+  | ASTbtype of tbtype
+  | ASTatype of tatype
+  | ASTqtycon of tqtycon
+  | ASTcontext of tcontext
+  | ASTclass of tclass
+  | ASTscontext of tscontext
+  | ASTsimpleclass of tsimpleclass
+  | ASTsimpletype of tsimpletype
+  | ASTconstr of tconstr
+  | ASTnewconstr of tnewconstr
+  | ASTfielddecl of tfielddecl
+  | ASTderiving of tderiving
+  | ASTdclass of tdclass
+  | ASTinst of tinst
+  | ASTfunlhs of tfunlhs
+  | ASTrhs of trhs
+  | ASTgdrhs of tgdrhs
+  | ASTgd of tgd
+  | ASTexp of texp
+  | ASTinfixexp of tinfixexp
+  | ASTexp10 of texp10
+  | ASTfexp of tfexp
+  | ASTaexp of taexp
+  | ASTqual of tqual
+  | ASTalt of talt
+  | ASTgdpat of tgdpat
+  | ASTstmt of tstmt
+  | ASTfbind of tfbind
+  | ASTpat of tpat
+  | ASTinfixpat of tinfixpat
+  | ASTpat10 of tpat10
+  | ASTapat of tapat
+  | ASTfpat of tfpat
+  | ASTgcon of tgcon
+  | ASTvar of tvar
+  | ASTqvar of tqvar
+  | ASTcon of tcon
+  | ASTqcon of tqcon
+  | ASTvarop of tvarop
+  | ASTqvarop of tqvarop
+  | ASTconop of tconop
+  | ASTqconop of tqconop
+  | ASTop of top
+  | ASTqop of tqop
+  | ASTqconsym of tqconsym
 
 (* Build an abstract syntax tree for the given stream of lexemes. *)
-val parse_ast : Lex.lexeme Queue.t -> ast
-
-(* Terminal symbols are just lexical tokens. *)
-type term = Lex.token
+val parse : Lex.lexeme Queue.t -> ast
 
 (* Nonterminal symbols in the Haskell 98 grammar. Long, ugly verbatim copy of
  * section 9.5 of the Report. Note that we implement
@@ -26,7 +147,7 @@ type nonterm =
   | NTimpdecl
   | NTimpspec
   | NTimport
-  | NTename
+  | NTcname
   | NTtopdecls
   | NTtopdecl
   | NTdecls

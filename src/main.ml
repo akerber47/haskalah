@@ -29,6 +29,7 @@ let () = begin
       Foo_pg.terminal_action = (fun _ -> 0); }
   in
   print_string (dump s);
+  print_string (dump (Parse.parse (Queue.create ())));
   print_string (dump (List.of_enum (Queue.enum (Lex.prelex "foobar"))))
 end
 ;;
