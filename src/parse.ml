@@ -37,7 +37,7 @@ type nonterm =
   | NTtype
   | NTbtype
   | NTatype
-  | NTqtycon
+  | NTgtycon
   | NTcontext
   | NTclass
   | NTscontext
@@ -153,7 +153,7 @@ let nonterm_print o nt =
     | NTtype -> "type"
     | NTbtype -> "btype"
     | NTatype -> "atype"
-    | NTqtycon -> "qtycon"
+    | NTgtycon -> "gtycon"
     | NTcontext -> "context"
     | NTclass -> "class"
     | NTscontext -> "scontext"

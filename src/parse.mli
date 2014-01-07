@@ -1,174 +1,169 @@
 open Batteries
 
 (* Abstract syntax tree for Haskell 98. Basically, a giant translation of the
- * Haskell grammar into ocaml types. *)
+ * Haskell grammar into ocaml. Rather than rewriting all the grammar rules /
+ * AST productions as concrete variants, we're just going to use
+ * polymorphic variants. This will help us with various semantic AST
+ * transformations later. So this AST is not as type-safe as it *could* be
+ * (could have a separate type for each sort of AST node) but this way I might
+ * actually finish this year. *)
 
-type tmodule = {
-  id : tmodid option;
-  exports : (texport list) option;
-  body : tbody;
-}
-
-and tbody = {
-  imports : (timpdecl list) option;
-  decls : (ttopdecl list) option;
-}
-
-and texport =
-  | Texport_var of tqvar
-  | Texport_type of texport_type
-  | Texport_class of texport_class
-  | Texport_module of tmodid
-
-and texport_type = {
-  name : tqtycon;
-  cons : (tcname list) option;
-}
-
-and texport_class = {
-  name : tqtycls;
-  methods : (tqvar list) option;
-}
-
-and timpdecl = {
-  qualified : bool;
-  id : tmodid;
-  as_id : tmodid option;
-  hiding : bool;
-  spec : (timport list) option;
-}
-
-and timport =
-  | Timport_var of tvar
-  | Timport_type of timport_type
-  | Timport_class of timport_class
-and timport_type = {
-  name : ttycon;
-  cons : (tcname list) option;
-}
-and timport_class = {
-  name : ttycls;
-  methods : (tvar list) option;
-}
-
-and tcname =
-  | Tcname_var of tvar
-  | Tcname_con of tcon
-
-and ttopdecl =
-  | Ttopdecl_type of ttopdecl_type
-  | Ttopdecl_data of ttopdecl_data
-  | Ttopdecl_newtype of ttopdecl_newtype
-  | Ttopdecl_class of ttopdecl_class
-  | Ttopdecl_instance of ttopdecl_instance
-  | Ttopdecl_default of ttype list
-  | Ttopdecl_decl of tdecl
-and ttopdecl_type = {
-  ttopdecl_type_lhs : tsimpletype;
-  ttopdecl_type_rhs : ttype;
-}
-and ttopdecl_data = {
-  context : tcontext;
-  lhs : tsimpletype;
-  rhs : tconstr list;
-  deriving : tderiving option;
-}
-and ttopdecl_newtype = {
-  context : tcontext;
-  lhs : tsimpletype;
-  rhs : tnewconstr;
-  deriving : tderiving option;
-}
-and ttopdecl_class = {
-  context : tscontext;
-  name : ttycls;
-  var : ttyvar;
-  where_body : (tcdecl list) option;
-}
-and ttopdecl_instance = {
-  context : tscontext;
-  name : ttycls;
-  inst : tinst;
-  where_body : (tidecl list) option;
-}
-
-and tdecl =
-  | Tdecl_general of tgendecl
-  | Tdecl_pat of tdecl_pat
-  | Tdecl_fun of tdecl_fun
-and tdecl_pat = {
-  lhs : tpat0;
-  rhs : trhs;
-}
-and tdecl_fun = {
-  lhs : tfunlhs;
-  rhs : trhs;
-}
-
-
-
-type ast =
-  | ASTmodule of tmodule
-  | ASTbody of tbody
-  | ASTexport of texport
-  | ASTimpdecl of timpdecl
-  | ASTimport of timport
-  | ASTcname of tcname
-  | ASTtopdecl of ttopdecl
-  | ASTdecl of tdecl
-  | ASTcdecl of tcdecl
-  | ASTidecl of tidecl
-  | ASTgendecl of tgendecl
-  | ASTfixity of tfixity
-  | ASTtype of ttype
-  | ASTbtype of tbtype
-  | ASTatype of tatype
-  | ASTqtycon of tqtycon
-  | ASTcontext of tcontext
-  | ASTclass of tclass
-  | ASTscontext of tscontext
-  | ASTsimpleclass of tsimpleclass
-  | ASTsimpletype of tsimpletype
-  | ASTconstr of tconstr
-  | ASTnewconstr of tnewconstr
-  | ASTfielddecl of tfielddecl
-  | ASTderiving of tderiving
-  | ASTdclass of tdclass
-  | ASTinst of tinst
-  | ASTfunlhs of tfunlhs
-  | ASTrhs of trhs
-  | ASTgdrhs of tgdrhs
-  | ASTgd of tgd
-  | ASTexp of texp
-  | ASTinfixexp of tinfixexp
-  | ASTexp10 of texp10
-  | ASTfexp of tfexp
-  | ASTaexp of taexp
-  | ASTqual of tqual
-  | ASTalt of talt
-  | ASTgdpat of tgdpat
-  | ASTstmt of tstmt
-  | ASTfbind of tfbind
-  | ASTpat of tpat
-  | ASTinfixpat of tinfixpat
-  | ASTpat10 of tpat10
-  | ASTapat of tapat
-  | ASTfpat of tfpat
-  | ASTgcon of tgcon
-  | ASTvar of tvar
-  | ASTqvar of tqvar
-  | ASTcon of tcon
-  | ASTqcon of tqcon
-  | ASTvarop of tvarop
-  | ASTqvarop of tqvarop
-  | ASTconop of tconop
-  | ASTqconop of tqconop
-  | ASTop of top
-  | ASTqop of tqop
-  | ASTqconsym of tqconsym
+(* Comment above each AST node says what sort of children it *should* have. No
+ * type system guarantees. *)
+type ast0 =
+  (* modid [export*] body *)
+  [ `Module of ast0 * (ast0 list) option * ast0
+  (* impdecl* topdecl* *)
+  | `Body of (ast0 list) * (ast0 list)
+  (* qvar *)
+  | `Export_var of ast0
+  (* qtycon [cname*] *)
+  | `Export_type of ast0 * (ast0 list) option
+  (* qtycls [qvar*] *)
+  | `Export_class of ast0 * (ast0 list) option
+  (* modid *)
+  | `Export_module of ast0
+  (* qualified? modid [modid] hiding? import* *)
+  | `Impdecl of bool * ast0 * (ast0 option) * bool * (ast0 list)
+  (* var *)
+  | `Import_var of ast0
+  (* tycon [cname*] *)
+  | `Import_type of ast0 * (ast0 list) option
+  (* tycls [var*] *)
+  | `Import_class of ast0 * (ast0 list) option
+  (* var *)
+  | `Cname_var of ast0
+  (* con *)
+  | `Cname_con of ast0
+  (* simpletype type *)
+  | `Topdecl_type of ast0 * ast0
+  (* [context] simpletype constr* [deriving] *)
+  | `Topdecl_data of ast0 option * ast0 * ast0 list * ast0 option
+  (* [context] simpletype newconstr [deriving] *)
+  | `Topdecl_newtype of ast0 option * ast0 * ast0 * ast0 option
+  (* [scontext] tycls tyvar cdecl* *)
+  | `Topdecl_class of ast0 option * ast0 * ast0 * ast0 list
+  (* [scontext] qtycls inst idecl* *)
+  | `Topdecl_instance of ast0 option * ast0 * ast0 * ast0 list
+  (* type* *)
+  | `Topdecl_default of ast0 list
+  (* decl *)
+  | `Topdecl_decl of ast0
+  (* gendecl *)
+  | `Decl_general of ast0
+  (* funlhs rhs *)
+  | `Decl_fun of ast0 * ast0
+  (* pat0 rhs *)
+  | `Decl_pat of ast0 * ast0
+  (* gendecl *)
+  | `Cdecl_general of ast0
+  (* funlhs rhs *)
+  | `Cdecl_fun of ast0 * ast0
+  (* var rhs *)
+  | `Cdecl_var of ast0 * ast0
+  (* funlhs rhs *)
+  | `Idecl_fun of ast0 * ast0
+  (* var rhs *)
+  | `Idecl_var of ast0 * ast0
+  (* *)
+  | `Idecl_empty
+  (* var* [context] type *)
+  | `Gendecl_type of ast0 list * ast0 option * ast0
+  (* fixity [integer] [op] *)
+  | `Gendecl_fixity of ast0 * ast0 option * ast0 list
+  (* *)
+  | `Gendecl_empty
+  | `Fixity_left
+  | `Fixity_right
+  | `Fixity_none
+  (* btype [atype] *)
+  | `Type of ast0 * ast0 option
+  (* [btype] atype *)
+  | `Btype of ast0 option * ast0
+  (* gtycon *)
+  | `Atype_con of ast0
+  (* tyvar *)
+  | `Atype_var of ast0
+  (* type* *)
+  | `Atype_tuple of ast0 list
+  (* type *)
+  | `Atype_list of ast0
+  (* type *)
+  | `Atype_paren of ast0
+  (* qtycon *)
+  | `Gtycon_con of ast0
+  | `Gtycon_unit
+  | `Gtycon_list
+  | `Gtycon_fun
+  | `Gtycon_tuple of int
+  (* class* *)
+  | `Context of ast0 list
+  (* qtycls tyvar *)
+  | `Class_simple of ast0 * ast0
+  (* qtycls tyvar atype* *)
+  | `Class_complex of ast0 * ast0 * ast0 list
+  (* simpleclass* *)
+  | `Scontext of ast0 list
+  (* qtycls tyvar *)
+  | `Simpleclass of ast0 * ast0
+  (* tycon tyvar* *)
+  | `Simpletype of ast0 * ast0 list
+  (* con (atype, strict?)* *)
+  | `Constr_con of ast0 * (ast0 * bool) list
+  (* btype/atype strict? conop btype/atype strict? *)
+  | `Constr_conop of ast0 * bool * ast0 * ast0 * bool
+  (* con fielddecl* *)
+  | `Constr_fields of ast0 * ast0 list
+  (* con atype *)
+  | `Newconstr_con of ast0
+  (* con var type *)
+  | `Newconstr_field of ast0 * ast0 * ast0
+  (* var* type/atype strict? *)
+  | `Fielddecl of ast0 list * ast0 * bool
+  (* dclass* *)
+  | `Deriving of ast0 list
+  (* qtycls *)
+  | `Dclass of ast0
+  | `Inst_con
+  | `Inst_app
+  | `Inst_tuple
+  | `Inst_list
+  | `Inst_fun
+  | `Funlhs
+  | `Rhs
+  | `Gdrhs
+  | `Gd
+  | `Exp
+  | `Infixexp
+  | `Exp10
+  | `Fexp
+  | `Aexp
+  | `Qual
+  | `Alt
+  | `Gdpat
+  | `Stmt
+  | `Fbind
+  | `Pat
+  | `Infixpat
+  | `Pat10
+  | `Apat
+  | `Fpat
+  | `Gcon
+  | `Var
+  | `Qvar
+  | `Con
+  | `Qcon
+  | `Varop
+  | `Qvarop
+  | `Conop
+  | `Qconop
+  | `Op
+  | `Qop
+  | `Qconsym
+  ]
 
 (* Build an abstract syntax tree for the given stream of lexemes. *)
-val parse : Lex.lexeme Queue.t -> ast
+val parse : Lex.lexeme Queue.t -> ast0
 
 (* Nonterminal symbols in the Haskell 98 grammar. Long, ugly verbatim copy of
  * section 9.5 of the Report. Note that we implement
@@ -200,7 +195,7 @@ type nonterm =
   | NTtype
   | NTbtype
   | NTatype
-  | NTqtycon
+  | NTgtycon
   | NTcontext
   | NTclass
   | NTscontext
