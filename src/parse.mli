@@ -10,7 +10,14 @@ open Batteries
 
 (* Comment above each AST node says what sort of children it *should* have. No
  * type system guarantees. *)
-type ast0 =
+type ast0 = {
+  node : ast0node;
+  (* For error reporting purposes, start and end of this syntax block in
+   * source. Basically just min/max over all tokens that make up the block. *)
+  startraw : int;
+  endraw   : int;
+}
+and ast0node =
   (* modid [export*] body *)
   [ `Module of ast0 * (ast0 list) option * ast0
   (* impdecl* topdecl* *)
@@ -53,7 +60,7 @@ type ast0 =
   | `Decl_general of ast0
   (* funlhs rhs *)
   | `Decl_fun of ast0 * ast0
-  (* pat0 rhs *)
+  (* infixpat rhs *)
   | `Decl_pat of ast0 * ast0
   (* gendecl *)
   | `Cdecl_general of ast0
@@ -124,42 +131,153 @@ type ast0 =
   | `Deriving of ast0 list
   (* qtycls *)
   | `Dclass of ast0
-  | `Inst_con
-  | `Inst_app
-  | `Inst_tuple
-  | `Inst_list
-  | `Inst_fun
-  | `Funlhs
-  | `Rhs
-  | `Gdrhs
-  | `Gd
-  | `Exp
-  | `Infixexp
-  | `Exp10
-  | `Fexp
-  | `Aexp
-  | `Qual
-  | `Alt
-  | `Gdpat
-  | `Stmt
-  | `Fbind
-  | `Pat
-  | `Infixpat
-  | `Pat10
-  | `Apat
-  | `Fpat
-  | `Gcon
-  | `Var
-  | `Qvar
-  | `Con
-  | `Qcon
-  | `Varop
-  | `Qvarop
-  | `Conop
-  | `Qconop
-  | `Op
-  | `Qop
-  | `Qconsym
+  (* gtycon *)
+  | `Inst_con of ast0
+  (* gtycon tyvar* *)
+  | `Inst_app of ast0 * ast0 list
+  (* tyvar* *)
+  | `Inst_tuple of ast0 list
+  (* tyvar *)
+  | `Inst_list of ast0
+  (* tyvar tyvar *)
+  | `Inst_fun of ast0 * ast0
+  (* var apat* *)
+  | `Funlhs_var of ast0 * ast0 list
+  (* infixpat *)
+  | `Funlhs_pat of ast0
+  (* funlhs apat* *)
+  | `Funlhs_app of ast0
+  (* exp [decl*] *)
+  | `Rhs_exp of ast0 * (ast0 list) option
+  (* gdrhs [decl*] *)
+  | `Rhs_guard of ast0 * (ast0 list) option
+  (* gd exp [gdrhs] *)
+  | `Gdrhs of ast0 * ast0 * (ast0 list) option
+  (* infixexp *)
+  | `Gd of ast0
+  (* infixexp [context] type *)
+  | `Exp_typed of ast0 * ast0 option * ast0
+  (* infixexp *)
+  | `Exp_infix of ast0
+  (* exp10 qop infixexp *)
+  | `Infixexp_op of ast0 * ast0 * ast0
+  (* infixexp *)
+  | `Infixexp_negate of ast0
+  (* exp10 *)
+  | `Infixexp_exp10 of ast0
+  (* apat* exp *)
+  | `Exp10_lambda of ast0 list * ast0
+  (* decl* exp *)
+  | `Exp10_let of ast0 list * ast0
+  (* exp exp exp *)
+  | `Exp10_if of ast0 * ast0 * ast0
+  (* exp alt* *)
+  | `Exp10_case of ast0 * ast0 list
+  (* stmt* *)
+  | `Exp10_do of ast0 list
+  (* fexp *)
+  | `Exp10_exp of ast0
+  (* [fexp] aexp *)
+  | `Fexp of ast0 option * ast0
+  (* qvar *)
+  | `Aexp_var of ast0
+  (* gcon *)
+  | `Aexp_con of ast0
+  (* literal *)
+  | `Aexp_literal of ast0
+  (* exp *)
+  | `Aexp_paren of ast0
+  (* exp* *)
+  | `Aexp_tuple of ast0 list
+  (* exp* *)
+  | `Aexp_list of ast0 list
+  (* exp [exp] [exp] *)
+  | `Aexp_seq of ast0 * ast0 option * ast0 option
+  (* exp qual* *)
+  | `Aexp_comp of ast0 * ast0 list
+  (* infixexp qop *)
+  | `Aexp_lsec of ast0 * ast0
+  (* qop infixexp *)
+  | `Aexp_rsec of ast0 * ast0
+  (* qop fbind* *)
+  | `Aexp_labelcon of ast0 * ast0 list
+  (* aexp fbind* *)
+  | `Aexp_labelupdate of ast0 * ast0 list
+  (* pat exp *)
+  | `Qual_gen of ast0 * ast0
+  (* decl* *)
+  | `Qual_let of ast0 list
+  (* exp *)
+  | `Qual_guard of ast0
+  (* pat exp [decl*] *)
+  | `Alt_pat of ast0 * ast0 * (ast0 list) option
+  (* pat gdpat [decl*] *)
+  | `Alt_guard of ast0 * ast0 * (ast0 list) option
+  (* gd exp [gdpat] *)
+  | `Gdpat of ast0 * ast0 * ast0 option
+  (* exp *)
+  | `Stmt_exp of ast0
+  (* pat exp *)
+  | `Stmt_assign of ast0 * ast0
+  (* decl* *)
+  | `Stmt_let of ast0 list
+  (* *)
+  | `Stmt_empty
+  (* qvar exp *)
+  | `Fbind of ast0 * ast0
+  (* NOTE no n+k patterns in our grammar *)
+  (* infixpat *)
+  | `Pat of ast0
+  (* pat10 qconop infixpat *)
+  | `Infixpat_op of ast0 * ast0 * ast0
+  (* - (integer | float) *)
+  | `Infixpat_negate of ast0
+  (* pat10 *)
+  | `Infixpat_pat10 of ast0
+  (* apat *)
+  | `Pat10_pat of ast0
+  (* gcon apat* *)
+  | `Pat10_conapp of ast0 * ast0 list
+  (* var apat *)
+  | `Apat_as of ast0 * (ast0 option)
+  (* gcon *)
+  | `Apat_nullary of ast0
+  (* qcon fpat* *)
+  | `Apat_labeled of ast0 * ast0 list
+  (* literal *)
+  | `Apat_literal of ast0
+  (* *)
+  | `Apat_wildcard
+  (* pat *)
+  | `Apat_paren of ast0
+  (* pat* *)
+  | `Apat_tuple of ast0 list
+  (* pat* *)
+  | `Apat_list of ast0 list
+  (* pat *)
+  | `Apat_irref of ast0
+  (* qvar pat *)
+  | `Fpat of ast0 * ast0
+  (* *)
+  | `Gcon_unit
+  | `Gcon_list
+  (* int *)
+  | `Gcon_tuple of int
+  (* qcon *)
+  | `Gcon_qcon of ast0
+  (* All of these below simply store a single id / symbol (or :), so
+   * will be represented by leaf, with the lexeme storing the remaining
+   * (actual) type data needed.
+   * in lexical syntax:
+   * varid, conid, tyvar, tyvar, tycon, tycls, modid, qvarid, qconid, qtycon,
+   * qtycls, qvarsym, qconsym, literal.
+   * in context-free syntax:
+   * var, qvar, con, qcon, varop, qvarop, conop, qconop, op, qop, gconsym. *)
+  | `Leaf of Lex.lexeme
+  (* This AST node is produced by ALL the NT<stuff>list productions.
+   * NT<stuff>list => <stuff>*
+   * Basically this is a trick to cut down on how many AST nodes we need. *)
+  | `Partial_list of ast0 list
   ]
 
 (* Build an abstract syntax tree for the given stream of lexemes. *)
