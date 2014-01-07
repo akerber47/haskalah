@@ -148,7 +148,7 @@ and ast0node =
   (* infixpat *)
   | `Funlhs_pat of ast0
   (* funlhs apat* *)
-  | `Funlhs_app of ast0
+  | `Funlhs_app of ast0 * ast0 list
   (* exp [decl*] *)
   | `Rhs_exp of ast0 * (ast0 list) option
   (* gdrhs [decl*] *)
