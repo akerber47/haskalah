@@ -367,13 +367,14 @@ type nonterm =
    * expression generally only has one kind of separator (not different
    * separators depending on where it shows up).
    * The idea here is instead of (say) the production
-   *   apat -> qcon { fpat_1 , ... , fpat_k } (k >= 0)
+   *   apat -> qcon { fpat_1 , ... , fpat_k } (k >= 1)
    * we need to use the productions
    *   apat -> qcon { apatlist }
    *   apatlist -> fpat , apatlist
-   *             | e
+   *             | fpat
    * so we'll just implement it like that. Basically we're expanding all the
-   * wildcards, optional things, etc in the BNF grammar by hand. *)
+   * wildcards, optional things, etc in the BNF grammar by hand. Each
+   * <stuff>list represents a list of AT LEAST ONE <stuff>. *)
   (* Comma-separated *)
   | NTimpdecllist
   | NTexportlist

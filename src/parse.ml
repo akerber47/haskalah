@@ -322,7 +322,7 @@ type nonterm =
   | NTgdrhs
   | NTgd
   | NTexp
-  | NTinfixexp (* See note above *)
+  | NTinfixexp
   | NTexp10
   | NTfexp
   | NTaexp
@@ -334,7 +334,7 @@ type nonterm =
   | NTstmt
   | NTfbind
   | NTpat
-  | NTinfixpat (* See note above *)
+  | NTinfixpat
   | NTpat10
   | NTapat
   | NTfpat
@@ -350,21 +350,6 @@ type nonterm =
   | NTop
   | NTqop
   | NTqconsym
-  (* Above are all the non-terminals listed in the printed grammar. To actually
-   * implement this grammar without wildcards in our BNF syntax, we need a few
-   * more. Each bunch below listed in order of appearance on the right-hand
-   * sides of the printed grammar in the Report. Luckily each sort of
-   * expression generally only has one kind of separator (not different
-   * separators depending on where it shows up).
-   * The idea here is instead of (say) the production
-   *   apat -> qcon { fpat_1 , ... , fpat_k } (k >= 0)
-   * we need to use the productions
-   *   apat -> qcon { apatlist }
-   *   apatlist -> fpat , apatlist
-   *             | e
-   * so we'll just implement it like that. Basically we're expanding all the
-   * wildcards, optional things, etc in the BNF grammar by hand. *)
-  (* Comma-separated *)
   | NTimpdecllist
   | NTexportlist
   | NTcnamelist
@@ -383,11 +368,9 @@ type nonterm =
   | NTfbindlist
   | NTfpatlist
   | NTpatlist
-  (* Semicolon-separated *)
   | NTdecllist
   | NTcdecllist
   | NTidecllist
-  (* Whitespace (nothing) separated *)
   | NTatypelist
   | NTtyvarlist
   | NTbangatypelist
@@ -518,6 +501,9 @@ module Haskell_parser_gen = Parser_gen.Make (
 open Haskell_parser_gen
 ;;
 
+let parse _ = { node = `Gcon_unit; startraw = -1; endraw = -1 }
+;;
+(*
 let haskell_cfg = {
   goal = Goal;
   productions =
@@ -544,24 +530,28 @@ let haskell_cfg = {
        { lhs = body
          rhs = { topdecls }
        { lhs = impdecls
-         rhs = impdecl impdecllist
+         rhs = impdecllist
        { lhs = impdecllist
          rhs = impdecllist ; impdecl
-       { lhs = 
+         rhs = impdecl
+       { lhs = exports
+         rhs = ( )
+         rhs = ( , )
+         rhs = ( exportlist )
+         rhs = ( exportlist , )
+       { lhs = export
+         rhs = qvar
+         rhs = qtycon ( .. )
+         rhs = qtycon ( )
+         rhs = qtycon ( cnamelist )
+         rhs = qtycls ( .. )
+         rhs = qtycls ( )
+         rhs = qtycls ( qvarlist )
+         rhs = RModule ConId
+       { lhs = impdecl
+         rhs = RImport 
          rhs = 
-       { lhs = 
          rhs = 
-       { lhs = 
-         rhs = 
-       { lhs = 
-         rhs = 
-       { lhs = 
-         rhs = 
-       { lhs = 
-         rhs = 
-       { lhs = 
-         rhs = 
-       { lhs = 
          rhs = 
        { lhs = 
          rhs = 
@@ -748,4 +738,4 @@ let haskell_cfg = {
     |];
   terminal_action = (fun _ -> 0);
 }
-
+*)
