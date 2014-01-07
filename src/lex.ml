@@ -40,12 +40,8 @@ type pretoken =
 type lexeme = {
   token     : token;
   contents  : string;
-  (* Line and column for error reporting purposes. Tokens added in the
-   * layout-handling step have column -1 (but the appropriate line #). *)
-  startline : int;    (* Line of the source string the lexeme starts on (and
-                         ends on, unless it's a multiline string literal) *)
-  startcol  : int;    (* Column ... *)
   startraw  : int;    (* Starting index in the raw (unsplit) source string *)
+  endraw    : int;
 }
 
 type prelexeme = {
@@ -118,8 +114,8 @@ let token_print o t =
 ;;
 
 let lexeme_print o l =
-  Printf.fprintf o "(%a \"%s\" %d(%d,%d))"
-    token_print l.token l.contents l.startraw l.startline l.startcol
+  Printf.fprintf o "(%a \"%s\" src[%d:%d])"
+    token_print l.token l.contents l.startraw l.endraw
 ;;
 
 
@@ -596,15 +592,14 @@ let postlex src prelexemes =
     end in
     Queue.add { token = tkn;
                 contents = cnts;
-                startline = stln;
-                startcol = stcl;
-                startraw = plx.startix } lexemes
+                startraw = plx.startix;
+                endraw = plx.endix } lexemes
   end
   in begin
     Queue.iter do_nextplx prelexemes;
     (* Add EOF token to keep the parser happy. *)
-    Queue.add { token = EOF; contents = ""; startline = -1;
-                startcol = -1; startraw = -1 } lexemes;
+    Queue.add { token = EOF; contents = ""; startraw = -1;
+                endraw = -1 } lexemes;
     lexemes
   end
 ;;
@@ -613,7 +608,7 @@ type lexeme_or_indent =
   | SomeLexeme of lexeme
   | IndentBlock of int (* {n} in specification *)
   | IndentLine of int (* <n> in specification *)
-let unlayout lexemes_orig indent_f start_f =
+let unlayout src_string lexemes_orig =
   let lexemes = Queue.copy lexemes_orig (* Don't modify input argument *)
   and inter_lxs = Queue.create () (* Intermediate queue for layout algo *)
   and final_lexemes = Queue.create ()
@@ -623,8 +618,8 @@ let unlayout lexemes_orig indent_f start_f =
     if (not (Queue.is_empty lexemes)) &&
        (Queue.peek lexemes).token <> LCurly &&
        (Queue.peek lexemes).token <> RModule then
-      Queue.add (IndentBlock (indent_f (Queue.peek lexemes).startraw))
-                inter_lxs;
+      Queue.add (IndentBlock (compute_indent src_string
+        (Queue.peek lexemes).startraw)) inter_lxs;
     while not (Queue.is_empty lexemes) do
       let lx = Queue.take lexemes in
       match lx.token with
@@ -638,17 +633,19 @@ let unlayout lexemes_orig indent_f start_f =
             Queue.add (SomeLexeme lx) inter_lxs;
             let nextlx = Queue.take lexemes
             in begin
-              Queue.add (IndentBlock (indent_f nextlx.startraw)) inter_lxs;
+              Queue.add (IndentBlock (compute_indent src_string
+                  nextlx.startraw)) inter_lxs;
               (* Process next lexeme immediately for special case of Rule #3 *)
-              lastln := nextlx.startline;
+              lastln := fst (compute_line_and_col src_string nextlx.startraw);
               Queue.add (SomeLexeme nextlx) inter_lxs;
             end
         end
       end
       | _ -> ();
       (* Rule #3: Add IndentLine before 1st token on line *)
-      if start_f lx.startraw then
-        Queue.add (IndentLine (indent_f lx.startraw)) inter_lxs;
+      if is_first_non_white src_string lx.startraw then
+        Queue.add (IndentLine (compute_indent src_string lx.startraw))
+          inter_lxs;
       Queue.add (SomeLexeme lx) inter_lxs
     done;
     (* inter_lxs contains input to translation L (in Report sec 9.3). Now apply
@@ -657,21 +654,18 @@ let unlayout lexemes_orig indent_f start_f =
     let add_implicit_L () =
       Queue.add { token = LCurly;
                   contents = "{";
-                  startline = -1;
-                  startcol = -1;
-                  startraw = -1; } final_lexemes
+                  startraw = -1;
+                  endraw = -1; } final_lexemes
     and add_implicit_R () =
       Queue.add { token = RCurly;
                   contents = "}";
-                  startline = -1;
-                  startcol = -1;
-                  startraw = -1; } final_lexemes
+                  startraw = -1;
+                  endraw = -1; } final_lexemes
     and add_implicit_semi () =
       Queue.add { token = Semicolon;
                   contents = ";";
-                  startline = -1;
-                  startcol = -1;
-                  startraw = -1; } final_lexemes
+                  startraw = -1;
+                  endraw = -1; } final_lexemes
     (* Loop through input queue, passing along layout context. Straight-up
      * implementation of patterns for transformation L. *)
     in
@@ -721,7 +715,7 @@ let unlayout lexemes_orig indent_f start_f =
               loop ms
             end
             (* Note 3 *)
-            | RCurly, _ -> raise (Lex_error (lx.startline, "Unmatched }"))
+            | RCurly, _ -> raise (Lex_error (lx.startraw, "Unmatched }"))
             (* Otherwise, just move the lexeme along. *)
             (* Note that we IGNORE Note 5, because it will tangle our parser
              * and lexer up horribly. So implicit closing braces are only

@@ -38,12 +38,8 @@ type pretoken =
 type lexeme = {
   token     : token;
   contents  : string;
-  (* Line and column for error reporting purposes. Tokens added in the
-   * layout-handling step have column -1 (but the appropriate line #). *)
-  startline : int;    (* Line of the source string the lexeme starts on (and
-                         ends on, unless it's a multiline string literal) *)
-  startcol  : int;    (* Column ... *)
   startraw  : int;    (* Starting index in the raw (unsplit) source string *)
+  endraw    : int;
 }
 
 type prelexeme = {
@@ -81,8 +77,6 @@ val postlex : string -> prelexeme Queue.t -> lexeme Queue.t
 
 (** Use the layout algorithm to insert tokens appropriately for the whitespace
  * in the original program. After this point we no longer need any whitespace
- * information. Input is the token stream before insertion, an indent
- * computation function (probably compute_indent, curried), and a start-of-line
- * computation function (probably is_first_non_white, curried). *)
-val unlayout : lexeme Queue.t -> (int -> int) ->
-  (int -> bool) -> lexeme Queue.t
+ * information. Input is the token stream before insertion along with original
+ * source string (to compute line / indent information) *)
+val unlayout : string -> lexeme Queue.t -> lexeme Queue.t
