@@ -4,14 +4,14 @@ open Batteries
  * Haskell grammar into ocaml types. *)
 
 type tmodule = {
-  tmodule_id : tmodid option;
-  tmodule_exports : (texport list) option;
-  tmodule_body : tbody;
+  id : tmodid option;
+  exports : (texport list) option;
+  body : tbody;
 }
 
 and tbody = {
-  tbody_imports : (timpdecl list) option;
-  tbody_decls : (ttopdecl list) option;
+  imports : (timpdecl list) option;
+  decls : (ttopdecl list) option;
 }
 
 and texport =
@@ -21,21 +21,21 @@ and texport =
   | Texport_module of tmodid
 
 and texport_type = {
-  texport_type_name : tqtycon;
-  texport_type_cons : (tcname list) option;
+  name : tqtycon;
+  cons : (tcname list) option;
 }
 
 and texport_class = {
-  texport_class_name : tqtycls;
-  texport_class_methods : (tqvar list) option;
+  name : tqtycls;
+  methods : (tqvar list) option;
 }
 
 and timpdecl = {
-  timpdecl_qualified : bool;
-  timpdecl_id : tmodid;
-  timpdecl_as : tmodid option;
-  timpdecl_hiding : bool;
-  timpdecl_spec : (timport list) option;
+  qualified : bool;
+  id : tmodid;
+  as_id : tmodid option;
+  hiding : bool;
+  spec : (timport list) option;
 }
 
 and timport =
@@ -43,12 +43,12 @@ and timport =
   | Timport_type of timport_type
   | Timport_class of timport_class
 and timport_type = {
-  timport_type_name : ttycon;
-  timport_type_cons : (tcname list) option;
+  name : ttycon;
+  cons : (tcname list) option;
 }
 and timport_class = {
-  timport_class_name : ttycls;
-  timport_class_methods : (tvar list) option;
+  name : ttycls;
+  methods : (tvar list) option;
 }
 
 and tcname =
@@ -68,7 +68,44 @@ and ttopdecl_type = {
   ttopdecl_type_rhs : ttype;
 }
 and ttopdecl_data = {
-  ttopdecl_data_context
+  context : tcontext;
+  lhs : tsimpletype;
+  rhs : tconstr list;
+  deriving : tderiving option;
+}
+and ttopdecl_newtype = {
+  context : tcontext;
+  lhs : tsimpletype;
+  rhs : tnewconstr;
+  deriving : tderiving option;
+}
+and ttopdecl_class = {
+  context : tscontext;
+  name : ttycls;
+  var : ttyvar;
+  where_body : (tcdecl list) option;
+}
+and ttopdecl_instance = {
+  context : tscontext;
+  name : ttycls;
+  inst : tinst;
+  where_body : (tidecl list) option;
+}
+
+and tdecl =
+  | Tdecl_general of tgendecl
+  | Tdecl_pat of tdecl_pat
+  | Tdecl_fun of tdecl_fun
+and tdecl_pat = {
+  lhs : tpat0;
+  rhs : trhs;
+}
+and tdecl_fun = {
+  lhs : tfunlhs;
+  rhs : trhs;
+}
+
+
 
 type ast =
   | ASTmodule of tmodule
