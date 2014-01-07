@@ -45,10 +45,11 @@ and ast0node =
   | `Cname_con of ast0
   (* simpletype type *)
   | `Topdecl_type of ast0 * ast0
-  (* [context] simpletype constr* [deriving] *)
-  | `Topdecl_data of ast0 option * ast0 * ast0 list * ast0 option
-  (* [context] simpletype newconstr [deriving] *)
-  | `Topdecl_newtype of ast0 option * ast0 * ast0 * ast0 option
+  (* NOTE no datatype contexts in our grammar *)
+  (* simpletype constr* [deriving] *)
+  | `Topdecl_data of ast0 * ast0 list * ast0 option
+  (* simpletype newconstr [deriving] *)
+  | `Topdecl_newtype of ast0 * ast0 * ast0 option
   (* [scontext] tycls tyvar cdecl* *)
   | `Topdecl_class of ast0 option * ast0 * ast0 * ast0 list
   (* [scontext] qtycls inst idecl* *)
@@ -389,6 +390,7 @@ type nonterm =
   | NTsimpleclasslist
   | NTfielddecllist
   | NTdclasslist
+  | NTtyvarcommalist
   | NTexplist
   | NTquallist
   | NTfbindlist
