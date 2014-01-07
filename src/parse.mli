@@ -13,7 +13,8 @@ open Batteries
 type ast0 = {
   node : ast0node;
   (* For error reporting purposes, start and end of this syntax block in
-   * source. Basically just min/max over all tokens that make up the block. *)
+   * source. Basically just min/max over all tokens that make up the block.
+   * (ignoring implicitly generated tokens) *)
   startraw : int;
   endraw   : int;
 }
@@ -401,3 +402,6 @@ type nonterm =
   | NTtyvarlist
   | NTbangatypelist
   | NTapatlist
+
+val nonterm_print : 'a BatIO.output -> nonterm -> unit
+val ast0_print : 'a BatIO.output -> ast0 -> unit
