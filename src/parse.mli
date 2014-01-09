@@ -15,8 +15,8 @@ type ast0 = {
   (* For error reporting purposes, start and end of this syntax block in
    * source. Basically just min/max over all tokens that make up the block.
    * (ignoring implicitly generated tokens) *)
-  startraw : int;
-  endraw   : int;
+  blockstart : int;
+  blockend   : int;
 }
 and ast0node =
   (* modid [export*] body *)
