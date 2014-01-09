@@ -141,7 +141,7 @@ and ast0node =
   (* infixpat *)
   | `Funlhs_pat of ast0
   (* funlhs apat* *)
-  | `Funlhs_app of ast0
+  | `Funlhs_app of ast0 * ast0 list
   (* exp [decl*] *)
   | `Rhs_exp of ast0 * (ast0 list) option
   (* gdrhs [decl*] *)
@@ -400,7 +400,6 @@ type nonterm =
   | NTtyvarlist
   | NTapatlist
   | NTstmtlist
-
   (* Stuff that "really" belongs in the lexical grammar, but we'll deal with it
    * here bc otherwise token types become ambiguous (and lexer gets
    * overcomplicated) *)

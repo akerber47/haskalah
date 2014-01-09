@@ -410,6 +410,16 @@ type nonterm =
   | NTtyvarlist
   | NTapatlist
   | NTstmtlist
+  (* Stuff that "really" belongs in the lexical grammar, but we'll deal with it
+   * here bc otherwise token types become ambiguous (and lexer gets
+   * overcomplicated) *)
+  | NTtyvar
+  | NTtycon
+  | NTtycls
+  | NTmodid
+  | NTqtycon
+  | NTqtycls
+  | NTliteral
 
 val nonterm_print : 'a BatIO.output -> nonterm -> unit
 val ast0_print : 'a BatIO.output -> ast0 -> unit
