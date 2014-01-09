@@ -6,7 +6,10 @@ OCAMLBUILD_FLAGS += -Is src,test -cflags -strict-sequence,'-w +a-4-44',-g
 OCAMLBUILD_FLAGS += -lflag -g
 OCAMLBUILD_FLAGS += -tags 'package(batteries)','package(oUnit)'
 
-DEBUG_FLAGS = `ocamlfind query -recursive -i-format batteries` -I src -I test
+# ocamldebug is just about the least intelligent program ever
+DEBUG_FLAGS = `ocamlfind query -recursive -i-format batteries`
+DEBUG_FLAGS += `ocamlfind query -recursive -i-format oUnit`
+DEBUG_FLAGS += -I src -I test -I _build/src -I _build/test
 
 .PHONY: all clean debug test-debug
 all: $(TARGETS)
