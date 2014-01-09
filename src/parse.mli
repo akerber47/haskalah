@@ -291,6 +291,7 @@ val parse : Lex.lexeme Queue.t -> ast0
  * precedence and fixities of operator expressions in a later step. This
  * violates the Haskell 98 specification. *)
 type nonterm =
+  | Goal
   | NTmodule
   | NTbody
   | NTimpdecls
@@ -333,7 +334,7 @@ type nonterm =
   | NTgdrhs
   | NTgd
   | NTexp
-  | NTinfixexp (* See note above *)
+  | NTinfixexp (* see note above *)
   | NTexp10
   | NTfexp
   | NTaexp
@@ -345,7 +346,7 @@ type nonterm =
   | NTstmt
   | NTfbind
   | NTpat
-  | NTinfixpat (* See note above *)
+  | NTinfixpat (* see note above *)
   | NTpat10
   | NTapat
   | NTfpat
@@ -360,7 +361,7 @@ type nonterm =
   | NTqconop
   | NTop
   | NTqop
-  | NTqconsym
+  | NTgconsym
   (* Above are all the non-terminals listed in the printed grammar. To actually
    * implement this grammar without wildcards in our BNF syntax, we need a few
    * more. Each bunch below listed in order of appearance on the right-hand
@@ -382,6 +383,7 @@ type nonterm =
   | NTcnamelist
   | NTqvarlist
   | NTimportlist
+  | NTtopdecllist
   | NTvarlist
   | NTtypelist
   | NTcommalist
@@ -390,21 +392,24 @@ type nonterm =
   | NTsimpleclasslist
   | NTfielddecllist
   | NTdclasslist
-  | NTtyvarcommalist
   | NTexplist
   | NTquallist
   | NTfbindlist
   | NTfpatlist
   | NTpatlist
+  | NTtyvarcommalist
   (* Semicolon-separated *)
   | NTdecllist
   | NTcdecllist
   | NTidecllist
+  | NTaltlist
+  (* Pipe separated *)
+  | NTconstrlist
   (* Whitespace (nothing) separated *)
   | NTatypelist
   | NTtyvarlist
-  | NTbangatypelist
   | NTapatlist
+  | NTstmtlist
 
 val nonterm_print : 'a BatIO.output -> nonterm -> unit
 val ast0_print : 'a BatIO.output -> ast0 -> unit

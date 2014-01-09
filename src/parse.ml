@@ -38,10 +38,11 @@ and ast0node =
   | `Cname_con of ast0
   (* simpletype type *)
   | `Topdecl_type of ast0 * ast0
-  (* [context] simpletype constr* [deriving] *)
-  | `Topdecl_data of ast0 option * ast0 * ast0 list * ast0 option
-  (* [context] simpletype newconstr [deriving] *)
-  | `Topdecl_newtype of ast0 option * ast0 * ast0 * ast0 option
+  (* NOTE no datatype contexts in our grammar *)
+  (* simpletype constr* [deriving] *)
+  | `Topdecl_data of ast0 * ast0 list * ast0 option
+  (* simpletype newconstr [deriving] *)
+  | `Topdecl_newtype of ast0 * ast0 * ast0 option
   (* [scontext] tycls tyvar cdecl* *)
   | `Topdecl_class of ast0 option * ast0 * ast0 * ast0 list
   (* [scontext] qtycls inst idecl* *)
@@ -323,7 +324,7 @@ type nonterm =
   | NTgdrhs
   | NTgd
   | NTexp
-  | NTinfixexp
+  | NTinfixexp (* see note above *)
   | NTexp10
   | NTfexp
   | NTaexp
@@ -335,7 +336,7 @@ type nonterm =
   | NTstmt
   | NTfbind
   | NTpat
-  | NTinfixpat
+  | NTinfixpat (* see note above *)
   | NTpat10
   | NTapat
   | NTfpat
@@ -350,12 +351,29 @@ type nonterm =
   | NTqconop
   | NTop
   | NTqop
-  | NTqconsym
+  | NTgconsym
+  (* Above are all the non-terminals listed in the printed grammar. To actually
+   * implement this grammar without wildcards in our BNF syntax, we need a few
+   * more. Each bunch below listed in order of appearance on the right-hand
+   * sides of the printed grammar in the Report. Luckily each sort of
+   * expression generally only has one kind of separator (not different
+   * separators depending on where it shows up).
+   * The idea here is instead of (say) the production
+   *   apat -> qcon { fpat_1 , ... , fpat_k } (k >= 1)
+   * we need to use the productions
+   *   apat -> qcon { apatlist }
+   *   apatlist -> fpat , apatlist
+   *             | fpat
+   * so we'll just implement it like that. Basically we're expanding all the
+   * wildcards, optional things, etc in the BNF grammar by hand. Each
+   * <stuff>list represents a list of AT LEAST ONE <stuff>. *)
+  (* Comma-separated *)
   | NTimpdecllist
   | NTexportlist
   | NTcnamelist
   | NTqvarlist
   | NTimportlist
+  | NTtopdecllist
   | NTvarlist
   | NTtypelist
   | NTcommalist
@@ -369,12 +387,20 @@ type nonterm =
   | NTfbindlist
   | NTfpatlist
   | NTpatlist
+  | NTtyvarcommalist
+  (* Semicolon-separated *)
   | NTdecllist
   | NTcdecllist
   | NTidecllist
+  | NTaltlist
+  (* Pipe separated *)
+  | NTconstrlist
+  (* Whitespace (nothing) separated *)
   | NTatypelist
   | NTtyvarlist
   | NTapatlist
+  | NTstmtlist
+
   (* Stuff that "really" belongs in the lexical grammar, but we'll deal with it
    * here bc otherwise token types become ambiguous (and lexer gets
    * overcomplicated) *)
@@ -459,18 +485,20 @@ let nonterm_print o nt =
     | NTqconop -> "qconop"
     | NTop -> "op"
     | NTqop -> "qop"
-    | NTqconsym -> "qconsym"
+    | NTgconsym -> "gconsym"
     | NTimpdecllist -> "impdecllist"
     | NTexportlist -> "exportlist"
     | NTcnamelist -> "cnamelist"
     | NTqvarlist -> "qvarlist"
     | NTimportlist -> "importlist"
+    | NTtopdecllist -> "topdecllist"
     | NTvarlist -> "varlist"
     | NTtypelist -> "typelist"
     | NTcommalist -> "commalist"
     | NToplist -> "oplist"
     | NTclasslist -> "classlist"
     | NTsimpleclasslist -> "simpleclasslist"
+    | NTconstrlist -> "constrlist"
     | NTfielddecllist -> "fielddecllist"
     | NTdclasslist -> "dclasslist"
     | NTexplist -> "explist"
@@ -483,7 +511,10 @@ let nonterm_print o nt =
     | NTidecllist -> "idecllist"
     | NTatypelist -> "atypelist"
     | NTtyvarlist -> "tyvarlist"
+    | NTtyvarcommalist -> "tyvarcommalist"
     | NTapatlist -> "apatlist"
+    | NTaltlist -> "altlist"
+    | NTstmtlist -> "stmtlist"
     | NTtyvar -> "NTtyvar"
     | NTtycon -> "NTtycon"
     | NTtycls -> "NTtycls"
@@ -616,22 +647,22 @@ let haskell_cfg = {
          rhs = [ T RModule; NT NTmodid ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpdecl;
-         rhs = [ T RImport; T RQualified; NT NTmodid; T RAs; NT NTmodid; NT NTimpspec ];
+         rhs = [ T RImport; T VarId; NT NTmodid; T VarId; NT NTmodid; NT NTimpspec ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpdecl;
-         rhs = [ T RImport; T RQualified; NT NTmodid; T RAs; NT NTmodid ];
+         rhs = [ T RImport; T VarId; NT NTmodid; T VarId; NT NTmodid ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpdecl;
-         rhs = [ T RImport; T RQualified; NT NTmodid; NT NTimpspec ];
+         rhs = [ T RImport; T VarId; NT NTmodid; NT NTimpspec ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpdecl;
-         rhs = [ T RImport; T RQualified; NT NTmodid ];
+         rhs = [ T RImport; T VarId; NT NTmodid ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpdecl;
-         rhs = [ T RImport; NT NTmodid; T RAs; NT NTmodid; NT NTimpspec ];
+         rhs = [ T RImport; NT NTmodid; T VarId; NT NTmodid; NT NTimpspec ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpdecl;
-         rhs = [ T RImport; NT NTmodid; T RAs; NT NTmodid ];
+         rhs = [ T RImport; NT NTmodid; T VarId; NT NTmodid ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpdecl;
          rhs = [ T RImport; NT NTmodid; NT NTimpspec ];
@@ -640,16 +671,16 @@ let haskell_cfg = {
          rhs = [ T RImport; NT NTmodid ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpspec;
-         rhs = [ T RHiding; T LParen; T RParen ];
+         rhs = [ T VarId; T LParen; T RParen ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpspec;
-         rhs = [ T RHiding; T LParen; T Comma; T RParen ];
+         rhs = [ T VarId; T LParen; T Comma; T RParen ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpspec;
-         rhs = [ T RHiding; T LParen; NT NTimportlist; T RParen ];
+         rhs = [ T VarId; T LParen; NT NTimportlist; T RParen ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpspec;
-         rhs = [ T RHiding; T LParen; NT NTimportlist; T Comma; T RParen ];
+         rhs = [ T VarId; T LParen; NT NTimportlist; T Comma; T RParen ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTimpspec;
          rhs = [ T LParen; T RParen ];
@@ -712,46 +743,46 @@ let haskell_cfg = {
          rhs = [ NT NTtype; NT NTsimpletype; T REquals; NT NTtype ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTdata; NT NTsimpletype; T REquals; NT NTconstrs; NT NTderiving ];
+         rhs = [ T RData; NT NTsimpletype; T REquals; NT NTconstrs; NT NTderiving ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTdata; NT NTsimpletype; T REquals; NT NTconstrs ];
+         rhs = [ T RData; NT NTsimpletype; T REquals; NT NTconstrs ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTnewtype; NT NTsimpletype; T REquals; NT NTnewconstr; NT NTderiving ];
+         rhs = [ T RNewtype; NT NTsimpletype; T REquals; NT NTnewconstr; NT NTderiving ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTnewtype; NT NTsimpletype; T REquals; NT NTnewconstr ];
+         rhs = [ T RNewtype; NT NTsimpletype; T REquals; NT NTnewconstr ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTclass; NT NTscontext; T REqualsRArrow; NT NTtycls; NT NTtyvar; T RWhere; NT NTcdecls ];
+         rhs = [ T RClass; NT NTscontext; T REqualsRArrow; NT NTtycls; NT NTtyvar; T RWhere; NT NTcdecls ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTclass; NT NTscontext; T REqualsRArrow; NT NTtycls; NT NTtyvar ];
+         rhs = [ T RClass; NT NTscontext; T REqualsRArrow; NT NTtycls; NT NTtyvar ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTclass; NT NTtycls; NT NTtyvar; T RWhere; NT NTcdecls ];
+         rhs = [ T RClass; NT NTtycls; NT NTtyvar; T RWhere; NT NTcdecls ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTclass; NT NTtycls; NT NTtyvar ];
+         rhs = [ T RClass; NT NTtycls; NT NTtyvar ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTinstance; NT NTscontext; T REqualsRArrow; NT NTqtycls; NT NTinst; T RWhere; NT NTidecls ];
+         rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqtycls; NT NTinst; T RWhere; NT NTidecls ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTinstance; NT NTscontext; T REqualsRArrow; NT NTqtycls; NT NTinst ];
+         rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqtycls; NT NTinst ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTinstance; NT NTqtycls; NT NTinst; T RWhere; NT NTidecls ];
+         rhs = [ T RInstance; NT NTqtycls; NT NTinst; T RWhere; NT NTidecls ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTinstance; NT NTqtycls; NT NTinst ];
+         rhs = [ T RInstance; NT NTqtycls; NT NTinst ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTdefault; T LParen; T RParen ];
+         rhs = [ T RDefault; T LParen; T RParen ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
-         rhs = [ NT NTdefault; T LParen; NT NTtypelist; T RParen ];
+         rhs = [ T RDefault; T LParen; NT NTtypelist; T RParen ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtopdecl;
          rhs = [ NT NTdecl ];
@@ -862,7 +893,7 @@ let haskell_cfg = {
          rhs = [ T RInfix ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtype;
-         rhs = [ NT NTbtype; RDashRArrow; NT NTatype ];
+         rhs = [ NT NTbtype; T RDashRArrow; NT NTatype ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtype;
          rhs = [ NT NTbtype ];
@@ -898,7 +929,7 @@ let haskell_cfg = {
          rhs = [ T LSquare; T RSquare ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTgtycon;
-         rhs = [ T LParen; RDashRArrow; T RParen ];
+         rhs = [ T LParen; T RDashRArrow; T RParen ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTgtycon;
          rhs = [ T LParen; NT NTcommalist; T RParen ];
@@ -979,9 +1010,6 @@ let haskell_cfg = {
          rhs = [ NT NTcon ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTconstr;
-         rhs = [ NT NTcon; NT NTbangatypelist ];
-         semantic_action = (fun _ -> 0);};
-       { lhs = NTconstr;
          rhs = [ NT NTbtype; NT NTconop; NT NTbtype ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTconstr;
@@ -1039,7 +1067,7 @@ let haskell_cfg = {
          rhs = [ T LSquare; NT NTtyvar; T RSquare ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTinst;
-         rhs = [ T LParen; NT NTtyvar; RDashRArrow; NT NTtyvar; T RParen ];
+         rhs = [ T LParen; NT NTtyvar; T RDashRArrow; NT NTtyvar; T RParen ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTtyvarcommalist;
          rhs = [ NT NTtyvar; T Comma; NT NTtyvarcommalist ];
@@ -1099,7 +1127,7 @@ let haskell_cfg = {
          rhs = [ NT NTexp10 ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTexp10;
-         rhs = [ T RBackslash; NT NTapatlist; RDashRArrow; NT NTexp ];
+         rhs = [ T RBackslash; NT NTapatlist; T RDashRArrow; NT NTexp ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTexp10;
          rhs = [ T RLet; NT NTdecls; T RIn; NT NTexp ];
@@ -1207,10 +1235,10 @@ let haskell_cfg = {
          rhs = [ NT NTalt ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTalt;
-         rhs = [ NT NTpat; RDashRArrow; NT NTexp; T RWhere; NT NTdecls ];
+         rhs = [ NT NTpat; T RDashRArrow; NT NTexp; T RWhere; NT NTdecls ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTalt;
-         rhs = [ NT NTpat; RDashRArrow; NT NTexp ];
+         rhs = [ NT NTpat; T RDashRArrow; NT NTexp ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTalt;
          rhs = [ NT NTpat; NT NTgdpat; T RWhere; NT NTdecls ];
@@ -1219,10 +1247,10 @@ let haskell_cfg = {
          rhs = [ NT NTpat; NT NTgdpat ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTgdpat;
-         rhs = [ NT NTgd; RDashRArrow; NT NTexp; NT NTgdpat ];
+         rhs = [ NT NTgd; T RDashRArrow; NT NTexp; NT NTgdpat ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTgdpat;
-         rhs = [ NT NTgd; RDashRArrow; NT NTexp ];
+         rhs = [ NT NTgd; T RDashRArrow; NT NTexp ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTstmts;
          rhs = [ NT NTstmtlist; NT NTexp; T Semicolon ];
@@ -1243,7 +1271,7 @@ let haskell_cfg = {
          rhs = [ NT NTpat; T RLArrowDash; NT NTexp; T Semicolon ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTstmt;
-         rhs = [ NT NTlet; NT NTdecls; T Semicolon ];
+         rhs = [ T RLet; NT NTdecls; T Semicolon ];
          semantic_action = (fun _ -> 0);};
        { lhs = NTstmt;
          rhs = [ T Semicolon ];
