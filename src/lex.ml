@@ -236,18 +236,18 @@ let prelex src_string =
     | _::cs, InComment -> do_nextchar (i+1) cs InComment
     (* Block comment cases. Get deeper on {-, less deep on -} *)
     | '{'::'-'::cs, (InBlockComment n) ->
-      do_nextchar (i+1) cs (InBlockComment (n+1))
+      do_nextchar (i+2) cs (InBlockComment (n+1))
     | '-'::'}'::cs, (InBlockComment n) -> begin
       if n = 1 then
-        do_nextchar (i+1) cs Default
+        do_nextchar (i+2) cs Default
       else
-        do_nextchar (i+1) cs (InBlockComment (n-1))
+        do_nextchar (i+2) cs (InBlockComment (n-1))
     end
     | _::cs, (InBlockComment n) -> do_nextchar (i+1) cs (InBlockComment n)
     (* Default cases. *)
-    | '{'::'-'::cs, Default -> do_nextchar (i+1) cs (InBlockComment 1)
+    | '{'::'-'::cs, Default -> do_nextchar (i+2) cs (InBlockComment 1)
     | '-'::'-'::cs, Default when has_comment_start cs ->
-        do_nextchar (i+1) cs InComment
+        do_nextchar (i+2) cs InComment
     (* Whitespace is boring. *)
     | c::cs, Default when iswhite c -> do_nextchar (i+1) cs Default
     (* Special chars are only 1 char long, so end them immediately. *)
