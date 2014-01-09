@@ -66,7 +66,7 @@ let token_print o t =
 
 let lexeme_print o l =
   Printf.fprintf o "(%a \"%s\" src[%d:%d])"
-    token_print l.token l.contents l.startraw l.endraw
+    token_print l.token l.Types.contents l.startraw l.endraw
 ;;
 
 
@@ -541,14 +541,14 @@ let postlex src prelexemes =
       | PreStringLit -> StringLit
     end in
     Queue.add { token = tkn;
-                contents = cnts;
+                Types.contents = cnts;
                 startraw = plx.startix;
                 endraw = plx.endix } lexemes
   end
   in begin
     Queue.iter do_nextplx prelexemes;
     (* Add EOF token to keep the parser happy. *)
-    Queue.add { token = EOF; contents = ""; startraw = -1;
+    Queue.add { token = EOF; Types.contents = ""; startraw = -1;
                 endraw = -1 } lexemes;
     lexemes
   end
@@ -603,17 +603,17 @@ let unlayout src_string lexemes_orig =
     (* Helper functions *)
     let add_implicit_L () =
       Queue.add { token = LCurly;
-                  contents = "{";
+                  Types.contents = "{";
                   startraw = -1;
                   endraw = -1; } final_lexemes
     and add_implicit_R () =
       Queue.add { token = RCurly;
-                  contents = "}";
+                  Types.contents = "}";
                   startraw = -1;
                   endraw = -1; } final_lexemes
     and add_implicit_semi () =
       Queue.add { token = Semicolon;
-                  contents = ";";
+                  Types.contents = ";";
                   startraw = -1;
                   endraw = -1; } final_lexemes
     (* Loop through input queue, passing along layout context. Straight-up
