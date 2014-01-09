@@ -4,6 +4,8 @@ open OUnit
 open Batteries
 ;;
 
+open Types
+;;
 open Lex
 ;;
 
@@ -39,7 +41,7 @@ let check_toks_cnts src toklist cntslist = begin
   assert_equal ~cmp:(List.eq (=))
                ~printer:dump
                cntslist
-               (List.map (fun lx -> lx.Lex.contents)
+               (List.map (fun lx -> lx.Types.contents)
                    (List.of_enum (Queue.enum (postlex src (prelex src)))))
 end
 

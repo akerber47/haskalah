@@ -1,52 +1,5 @@
 open Batteries
-
-type token =
-  | EOF
-  | VarId
-  | ConId
-  | VarSym
-  | ConSym
-  (* These only match names that are *actually* qualified *)
-  | QVarId
-  | QConId
-  | QVarSym
-  | QConSym
-  | IntLit
-  | FloatLit
-  | CharLit
-  | StringLit
-  (* Reserved words *)
-  | RCase | RClass | RData | RDefault | RDeriving | RDo | RElse | RIf | RImport
-  | RIn | RInfix | RInfixl | RInfixr | RInstance | RLet | RModule | RNewtype
-  | ROf | RThen | RType | RWhere | RUnderscore
-  (* Reserved operators *)
-  | RDotDot | RColon | RColonColon | REquals | RBackslash | RPipe | RLArrowDash
-  | RDashRArrow | RAt | RTilde | REqualsRArrow
-  (* Special characters *)
-  | LParen | RParen | LSquare | RSquare | LCurly | RCurly
-  | Comma | Semicolon | Backquote
-
-type pretoken =
-  | PreQVarId
-  | PreQVarSym
-  | PreIntLit
-  | PreFloatLit
-  | PreCharLit
-  | PreStringLit
-  | PreSpecial
-
-type lexeme = {
-  token     : token;
-  contents  : string;
-  startraw  : int;    (* Starting index in the raw (unsplit) source string *)
-  endraw    : int;
-}
-
-type prelexeme = {
-  pretoken  : pretoken;
-  startix   : int;    (* Starting index in the raw (unsplit) source string *)
-  endix     : int;    (* Ending index, points *after* last char. *)
-}
+open Types
 
 (** For debugging purposes. *)
 val token_print : 'a BatIO.output -> token -> unit
