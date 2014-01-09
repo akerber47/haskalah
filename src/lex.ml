@@ -498,8 +498,7 @@ let postlex src prelexemes =
   let lexemes = Queue.create () in
   let do_nextplx plx = begin
     (* Use indices into source string to copy out lexeme contents *)
-    let (stln, stcl) = compute_line_and_col src plx.startix
-    and cnts = String.slice ~first:plx.startix ~last:plx.endix src in
+    let cnts = String.slice ~first:plx.startix ~last:plx.endix src in
     (* Further categorize the token based on lexeme contents *)
     let tkn = begin
       match plx.pretoken with
