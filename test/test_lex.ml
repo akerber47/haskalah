@@ -45,6 +45,11 @@ let check_toks_cnts src toklist cntslist = begin
                    (List.of_enum (Queue.enum (postlex src (prelex src)))))
 end
 
+let lex_file f =
+  let src = Util.file_to_string f in
+  ignore(Lex.unlayout src (Lex.postlex src (Lex.prelex src)))
+;;
+
 (* Make sure all token types end / transition correctly. *)
 let test_lex_endtok _ = begin
   check_toks_cnts "abc123" [VarId; EOF] ["abc123"; ""];
@@ -93,11 +98,31 @@ let test_lex_endtok _ = begin
 end
 ;;
 
+(* Make sure all our little test files lex without errors. *)
+let test_lex_files _ = begin
+  lex_file "test/files/simple/hello.hs";
+  lex_file "test/files/simple/fib.hs";
+  lex_file "test/files/simple/fac.hs";
+  lex_file "test/files/euler/1.hs";
+  lex_file "test/files/euler/2.hs";
+  lex_file "test/files/euler/3.hs";
+  lex_file "test/files/euler/4.hs";
+  lex_file "test/files/euler/5.hs";
+  lex_file "test/files/euler/6.hs";
+  lex_file "test/files/euler/7.hs";
+  lex_file "test/files/euler/9.hs";
+  lex_file "test/files/euler/10.hs";
+  lex_file "test/files/euler/12.hs";
+  lex_file "test/files/euler/13.hs"
+end
+;;
+
 (* Name the test cases and group them together *)
 let suite =
   "lex test suite">:::
      ["prelex_basic">:: test_prelex_basic;
-       "lex_endtok">:: test_lex_endtok]
+       "lex_endtok">:: test_lex_endtok;
+       "lex_files">:: test_lex_files]
 ;;
 
 let run_all () =

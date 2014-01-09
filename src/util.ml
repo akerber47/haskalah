@@ -1,7 +1,11 @@
 open Batteries
 ;;
 
-let debug = true
+let file_to_string f =
+  BatIO.read_all (open_in f)
+;;
+
+let debug = false
 ;;
 
 let dbg fmt4 =
