@@ -112,7 +112,7 @@ let isnamechar = function
 
 let issymb = function
   | '!' | '#' | '$' | '%' | '&' | '*' | '+' | '.' | '/' | '<' | '=' -> true
-  | '?' | '@' | '^' | '|' | '-' | '~' | ':' | '\\' -> true
+  | '>' | '?' | '@' | '^' | '|' | '-' | '~' | ':' | '\\' -> true
   | _ -> false
 ;;
 let isspecial = function
