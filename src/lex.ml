@@ -705,7 +705,7 @@ let unlayout src_string lexemes_orig =
        * in case multiple layout blocks end here. *)
       | m::ms when n < m -> begin
         add_implicit_R ();
-        do_indentline n (m::ms)
+        do_indentline n ms
       end
       (* Indent level increases (but not at start of layout block), so
        * this is line continuation, just keep going. Note that since this can
