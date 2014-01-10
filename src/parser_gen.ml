@@ -317,7 +317,7 @@ let first_sets cfg =
         in
         let nextfs = add_first_from_str curfs nextprod.rhs in
         (* Check if the first set has changed, if so add it to the map. *)
-        if not (Set.equal nextfs.terms curfs.terms) ||
+        if (not (Set.equal nextfs.terms curfs.terms)) ||
            (nextfs.has_epsilon <> curfs.has_epsilon) then begin
           still_adding := true;
           curmap := Map.add nextprod.lhs nextfs !curmap
@@ -370,9 +370,8 @@ let terminal_after_dot cfg itm =
   * we're given a set of items we're in a state to receive, this computes
   * other items we should also be willing to receive in this same state (by
   * repeatedly expanding the rhs of our given items after the dot). *)
-let rec closure cfg itmst =
-  let fstable = first_sets cfg
-  and still_adding = ref false
+let rec closure cfg fstable itmst =
+  let still_adding = ref false
   and new_itmst = ref itmst in
   let do_item itm =
     let rhs = cfg.productions.(itm.prod).rhs in
@@ -410,7 +409,7 @@ let rec closure cfg itmst =
     Util.dbg "Computing closure for %a" (itemset_print cfg) itmst;
     Set.iter do_item itmst;
     if !still_adding then
-      closure cfg !new_itmst
+      closure cfg fstable !new_itmst
     else begin
       Util.dbg "Computed closure = %a" (itemset_print cfg) itmst;
       itmst
@@ -423,7 +422,7 @@ let rec closure cfg itmst =
  * if the given symbol doesn't match *any* of "next desired symbols"
  * (symbols immediately following the dot) of the given items, we will get
  * an empty set. *)
-let goto cfg itmst sym =
+let goto cfg fstable itmst sym =
   let next_itmst = ref Set.empty in begin
   (* Look for all items which explicitly have that terminal immediately
    * following the dot in their rhs. Then move the dot. *)
@@ -435,10 +434,12 @@ let goto cfg itmst sym =
             next_itmst := Set.add {itm with dot=itm.dot+1} !next_itmst)
       itmst;
     (* Finally, compute the closure of all those items post dot transition *)
-    closure cfg !next_itmst
+    closure cfg fstable !next_itmst
   end
 
 let build_cc cfg =
+  (* Compute all the first sets ahead of time *)
+  let fstable = first_sets cfg in
   (* Keep track of the item sets and gotos we've found so far. *)
   let cur_itemsets = ref Map.empty
   and cur_gotos = ref Map.empty
@@ -463,7 +464,7 @@ let build_cc cfg =
   begin
     Util.dbg "Building CC for grammar %a\n" grammar_print cfg;
     (* Start by adding the 0th itemset, corresponding to the start state. *)
-    let itmst_zero = closure cfg (List.fold_left
+    let itmst_zero = closure cfg fstable (List.fold_left
       (* In the start state, we want to match the goal symbol somehow
        * (prod has lhs = goal), we haven't matched anything yet (dot = 0), and
        * the next thing we encounter after that should be EOF. *)
@@ -475,7 +476,7 @@ let build_cc cfg =
     (* Now, repeatedly iterate over all unprocessed itemsets until there are no
      * longer any new itemsets being added. *)
     while !ix_first_unprocessed < !ix_new_itemset do
-      Util.dbg "Have built %d itemsets, %d processed already\n"
+      Util.dbg2 "Have built %d itemsets, %d processed already\n"
         !ix_new_itemset !ix_first_unprocessed;
       for ix = !ix_first_unprocessed to (!ix_new_itemset - 1) do begin
         let itmst = Map.find ix !cur_itemsets in
@@ -494,7 +495,7 @@ let build_cc cfg =
         in
         Set.iter
           (fun s ->
-            let next_itmst = goto cfg itmst s in
+            let next_itmst = goto cfg fstable itmst s in
             let next_ix = match lookup_itemset next_itmst with
             | (Some existing_ix) -> existing_ix
             | None -> begin
@@ -508,7 +509,7 @@ let build_cc cfg =
         ix_first_unprocessed := !ix_first_unprocessed + 1
       end done
     done;
-    Util.dbg "Built CC %a\n" (cc_print cfg)
+    Util.dbg2 "Built CC %a\n" (cc_print cfg)
       { itemsets = !cur_itemsets;
         gotos = !cur_gotos;
         num_itemsets = !ix_new_itemset; };
@@ -524,7 +525,7 @@ let build_tables cfg cc =
     (* Build that row of the action table *)
     Set.iter
       (fun itm -> begin
-        Util.dbg "Generating action entry for item %a\n" (item_print cfg) itm;
+        Util.dbg2 "Generating action entry for item %a\n" (item_print cfg) itm;
         (* If dot is immediately before terminal, shift action. *)
         match terminal_after_dot cfg itm with
         | (Some t) ->
@@ -534,7 +535,7 @@ let build_tables cfg cc =
                   (Shift (Map.find (i,(T t)) cc.gotos))) then
               raise (Parser_gen_error "Grammar conflict")
             else begin
-              Util.dbg "Generated (%d, %a) -> Shift %d\n"
+              Util.dbg2 "Generated (%d, %a) -> Shift %d\n"
                 i tm_print t (Map.find (i,(T t)) cc.gotos);
               actions := Map.add (i,t)
                                  (Shift (Map.find (i,(T t)) cc.gotos))
@@ -551,7 +552,7 @@ let build_tables cfg cc =
                 (Map.find (i,itm.lookahead) !actions <> (Accept itm.prod)) then
               raise (Parser_gen_error "Grammar conflict")
             else begin
-              Util.dbg "Generated (%d, %a) -> Accept [%d] %a\n"
+              Util.dbg2 "Generated (%d, %a) -> Accept [%d] %a\n"
                 i tm_print itm.lookahead itm.prod
                 production_print cfg.productions.(itm.prod);
               actions := Map.add (i,itm.lookahead) (Accept itm.prod) !actions
@@ -562,7 +563,7 @@ let build_tables cfg cc =
                 (Map.find (i,itm.lookahead) !actions <> (Reduce itm.prod)) then
               raise (Parser_gen_error "Grammar conflict")
             else begin
-              Util.dbg "Generated (%d, %a) -> Reduce [%d] %a\n"
+              Util.dbg2 "Generated (%d, %a) -> Reduce [%d] %a\n"
                 i tm_print itm.lookahead itm.prod
                 production_print cfg.productions.(itm.prod);
               actions := Map.add (i,itm.lookahead) (Reduce itm.prod) !actions;
@@ -578,7 +579,7 @@ let build_tables cfg cc =
       | (NT nt) -> gotos := Map.add (i,nt) j !gotos
       | _ -> ())
     cc.gotos;
-  Util.dbg "Pruned gotos to: %a\n"
+  Util.dbg2 "Pruned gotos to: %a\n"
     (Map.print ~first:"\n" ~last:"\n" ~sep:",\n" ~kvsep:" -> "
       (fun o (i,nt) -> Printf.fprintf o "(%d,%a)" i ntm_print nt)
       (fun o i -> Printf.fprintf o "%d" i))
