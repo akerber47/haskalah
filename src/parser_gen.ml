@@ -607,7 +607,7 @@ let build_tables cfg cc =
             Util.dbg "Generated (%d, %a) -> [%a] %a \n"
               i tm_print itm.lookahead action_print newact
               production_print cfg.productions.(itm.prod);
-            actions := Map.add (i,itm.lookahead) (Accept itm.prod) !actions
+            actions := Map.add (i,itm.lookahead) newact !actions
           end
       end)
       (Map.find i cc.itemsets);
