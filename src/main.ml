@@ -1,6 +1,7 @@
 open Batteries
 ;;
 
+(*
 module Foo_pg = Parser_gen.Make (
   struct
     type tm = int
@@ -17,8 +18,10 @@ module Foo_pg = Parser_gen.Make (
     let ast_print = print_guess
   end
 );;
+*)
 
 let () = begin
+  (*
   let s = Foo_pg.first_sets
     { Foo_pg.goal = 0;
       Foo_pg.productions = [|
@@ -30,6 +33,7 @@ let () = begin
   in
   print_string (dump s);
   print_string (dump (Parse.parse (Queue.create ())));
+  *)
   print_string (dump (List.of_enum (Queue.enum (Lex.prelex "foobar"))))
 end
 ;;

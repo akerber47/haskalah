@@ -3,6 +3,7 @@ open Batteries
 open Types
 ;;
 
+(*
 module Haskell_parser_gen = Parser_gen.Make (
   struct
     type tm = token
@@ -24,8 +25,13 @@ module Haskell_parser_gen = Parser_gen.Make (
 
 open Haskell_parser_gen
 ;;
+*)
 
+let parse _ =
+  { node = `Apat_wildcard; blockstart = -1; blockend = -1 }
+;;
 
+(*
 (* CHANGES TO THE HASKELL 98 GRAMMAR:
  * No datatype contexts
  * https://ghc.haskell.org/trac/haskell-prime/wiki/NoDatatypeContexts
@@ -974,3 +980,5 @@ let parse lxq =
   | 0 -> { node = `Gcon_tuple 1; blockstart = -1; blockend = -1 }
   | _ -> { node = `Gcon_tuple 0; blockstart = -1; blockend = -1 }
 ;;
+
+*)
