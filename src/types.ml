@@ -170,6 +170,19 @@ type nonterm =
   | NTqconid
   | NTliteral
 
+(* States and tables of the parsing pushdown automaton. State numbers
+ * correspond to various structures in the parser generator internals. These
+ * are really only included here to avoid circular type dependencies between
+ * the parser simulator and the computed parser generator tables. *)
+type state = int
+
+type action =
+  | Shift of state
+  (* Store index of production (in grammar list) we use to reduce. *)
+  | Reduce of int
+  (* Store index of goal production we use to accept *)
+  | Accept of int
+
 (* Output of parser *)
 type ast0 = {
   node : ast0node;

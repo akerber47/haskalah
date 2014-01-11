@@ -1,4 +1,7 @@
 open Batteries
+;;
+open Types
+;;
 
 (* Using pre-existing parser generators is LAME, so this is a hand-rolled one.
  * What could possibly go wrong? *)
@@ -43,21 +46,6 @@ type grammar = {
   goal : nonterm;
   productions : production Array.t;
 }
-
-(* States and tables of the resulting pushdown automaton. State numbers will
- * be the indices of the corresponding itemsets in the CC. *)
-type state = int
-
-type action =
-  | Shift of state
-  (* Store index of production (in grammar list) we use to reduce. *)
-  | Reduce of int
-  (* Store index of goal production we use to accept *)
-  | Accept of int
-  (* Will print this in the outputted table whenever there is a conflict. Note
-   * that the generated code will *not* compile if any generated Conflict
-   * entries are not removed manually. *)
-  | Conflict
 
 (* Given a grammar, computes the states and transition tables of the pushdown
  * automaton that can simulate the grammar. Write these (in ocaml source form)
@@ -119,17 +107,6 @@ type aug_grammar = {
    * input the matched lexeme (to extract its contents, line/col #s, etc. *)
   terminal_action : (lexeme -> ast);
 }
-
-(* States and tables of the resulting pushdown automaton. State numbers will
- * be the indices of the corresponding itemsets in the CC. *)
-type state = int
-
-type action =
-  | Shift of state
-  (* Store index of production (in grammar list) we use to reduce. *)
-  | Reduce of int
-  (* Store index of goal production we use to accept *)
-  | Accept of int
 
 (* Given an augmented grammar and functions implementing the action and goto
  * tables of the pushdown automaton, simulates it to parse the given queue of

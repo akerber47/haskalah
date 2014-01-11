@@ -1,5 +1,7 @@
 open Batteries
 ;;
+open Types
+;;
 
 (* Unfortunately this Haskell grammar fails very, very badly at being LL(1)
  * (it has lots and lots of infix operators, can't tell tuples from parentheses
@@ -41,21 +43,6 @@ type grammar = {
   goal : nonterm;
   productions : production Array.t;
 }
-
-(* States and tables of the resulting pushdown automaton. State numbers will
- * be the indices of the corresponding itemsets in the CC. *)
-type state = int
-
-type action =
-  | Shift of state
-  (* Store index of production (in grammar list) we use to reduce. *)
-  | Reduce of int
-  (* Store index of goal production we use to accept *)
-  | Accept of int
-  (* Will print this in the outputted table whenever there is a conflict. Note
-   * that the generated code will *not* compile if any generated Conflict
-   * entries are not removed manually. *)
-  | Conflict
 
 (* Given a grammar, computes the states and transition tables of the pushdown
  * automaton that can simulate the grammar. Write these (in ocaml source form)
@@ -113,17 +100,6 @@ type aug_grammar = {
   terminal_action : (lexeme -> ast);
 }
 
-(* States and tables of the resulting pushdown automaton. State numbers will
- * be the indices of the corresponding itemsets in the CC. *)
-type state = int
-
-type action =
-  | Shift of state
-  (* Store index of production (in grammar list) we use to reduce. *)
-  | Reduce of int
-  (* Store index of goal production we use to accept *)
-  | Accept of int
-
 (* Given an augmented grammar and functions implementing the action and goto
  * tables of the pushdown automaton, simulates it to parse the given queue of
  * lexemes, building an AST. The input functions are presumably obtained by
@@ -155,16 +131,6 @@ type grammar = {
   goal : nonterm;
   productions : production Array.t;
 }
-
-(* States and tables of the resulting pushdown automaton. State numbers will
- * be the indices of the corresponding itemsets. *)
-type state = int
-
-type action =
-  | Shift of state
-  | Reduce of int
-  | Accept of int
-  | Conflict
 
 (* Represents a FIRST set. FIRST(string of grammar symbols) = the set of all
  * first terminals in terminal-strings that match the given symbol-string.
@@ -273,7 +239,6 @@ let action_print o a =
   | Shift s -> Printf.fprintf o "Shift %d" s
   | Reduce n -> Printf.fprintf o "Reduce %d" n
   | Accept n -> Printf.fprintf o "Accept %d" n
-  | Conflict -> Printf.fprintf o "Conflict"
 
 (* ---- End debug print functions ---- *)
 
@@ -553,26 +518,26 @@ let build_tables cfg cc =
               let a = Map.find (i,t) !actions in
               match a with
               (* Already filled with correct entry, do nothing *)
-              | (Shift s) when s = (Map.find (i,(T t)) cc.gotos) -> ()
+              | (Some (Shift s)) when s = (Map.find (i,(T t)) cc.gotos) -> ()
               (* No such thing as a shift-shift conflict - this indicates
                * programming error in the parser generator *)
-              | (Shift _) -> assert false
+              | (Some (Shift _)) -> assert false
               (* We resolve shift-reduce conflicts by shifting, so any
                * preexisting reduce, accept, or reduce-reduce conflict gets
                * overwritten here. *)
-              | (Reduce _)
-              | (Accept _)
-              | Conflict ->
-                Util.dbg "Generated (%d, %a) -> Shift %d [was %a]\n"
-                  i tm_print t (Map.find (i,(T t)) cc.gotos) action_print a;
+              | (Some (Reduce _))
+              | (Some (Accept _))
+              | None ->
+                Util.dbg "Generated (%d, %a) -> Shift %d [was reduce]\n"
+                  i tm_print t (Map.find (i,(T t)) cc.gotos);
                 actions := Map.add (i,t)
-                                   (Shift (Map.find (i,(T t)) cc.gotos))
+                                   (Some (Shift (Map.find (i,(T t)) cc.gotos)))
                                    !actions
             else begin
               Util.dbg "Generated (%d, %a) -> Shift %d\n"
                 i tm_print t (Map.find (i,(T t)) cc.gotos);
               actions := Map.add (i,t)
-                                 (Shift (Map.find (i,(T t)) cc.gotos))
+                                 (Some (Shift (Map.find (i,(T t)) cc.gotos)))
                                  !actions
             end
         | None -> ();
@@ -591,23 +556,23 @@ let build_tables cfg cc =
             let a = Map.find (i,itm.lookahead) !actions in
             match a with
             (* Already filled with correct entry, do nothing *)
-            | act when act = newact -> ()
+            | (Some act) when act = newact -> ()
             (* Resolve shift-reduce conflicts by shifting *)
-            | (Shift _) -> ()
+            | (Some (Shift _)) -> ()
             (* If already a conflict, no need to keep reporting *)
-            | Conflict -> ()
-            | _ -> begin
+            | None -> ()
+            | (Some act) -> begin
               Util.dbg2 "R-R conflict at (%d,%a) between (%a) and (%a)\n"
                 i tm_print itm.lookahead
-                action_print a
+                action_print act
                 action_print newact;
-              actions := Map.add (i,itm.lookahead) Conflict !actions
+              actions := Map.add (i,itm.lookahead) None !actions
             end
           else begin
             Util.dbg "Generated (%d, %a) -> [%a] %a \n"
               i tm_print itm.lookahead action_print newact
               production_print cfg.productions.(itm.prod);
-            actions := Map.add (i,itm.lookahead) newact !actions
+            actions := Map.add (i,itm.lookahead) (Some newact) !actions
           end
       end)
       (Map.find i cc.itemsets);
@@ -631,20 +596,27 @@ let output_tables cfg outfilename =
   let mycc = build_cc cfg in
   let (actions, gotos) = build_tables cfg mycc in
   let o = open_out outfilename in begin
-    Printf.fprintf o "(* You probably want to add some imports here. *)\n";
+    Printf.fprintf o "open Batteries\n;;\n";
+    Printf.fprintf o "open Types\n;;\n\n";
     Printf.fprintf o "(* --- BEGIN AUTOGENERATED CODE --- *)\n";
     Printf.fprintf o "let computed_do_action (s,t) =\n";
     Printf.fprintf o "  match (s,t) with\n";
     Map.iter
       (fun (s,t) a ->
-        Printf.fprintf o "  | (%d,%a) -> %a\n" s tm_print t action_print a)
+        match a with
+        | (Some act) ->
+          Printf.fprintf o "  | (%d,%a) -> %a\n" s tm_print t action_print act
+        | None ->
+          Printf.fprintf o "  | (%d,%a) -> Conflict!\n" s tm_print t)
       actions;
+    Printf.fprintf o "  | (_,_) -> raise (Parse_error \"Syntax error\")\n";
     Printf.fprintf o ";;\n\n";
     Printf.fprintf o "let computed_do_goto (s,nt) =\n";
     Map.iter
       (fun (s,nt) s2 ->
         Printf.fprintf o "  | (%d,%a) -> %d\n" s ntm_print nt s2)
       gotos;
+    Printf.fprintf o "  | (_,_) -> raise (Parse_error \"Syntax error\")\n";
     Printf.fprintf o ";;\n\n";
     close_out o
   end
@@ -682,15 +654,6 @@ type aug_grammar = {
    * input the matched lexeme (to extract its contents, line/col #s, etc. *)
   terminal_action : (lexeme -> ast);
 }
-
-(* States and tables of the resulting pushdown automaton. State numbers will
- * be the indices of the corresponding itemsets. *)
-type state = int
-
-type action =
-  | Shift of state
-  | Reduce of int
-  | Accept of int
 
 let simulate acfg do_action do_goto lexemes =
   Util.dbg "Starting simulation\n";
