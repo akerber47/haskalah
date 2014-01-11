@@ -184,7 +184,7 @@ let haskell_cfg = {
          rhs = [ NT NTtopdecl ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ NT NTtype; NT NTsimpletype; T REquals; NT NTtype ]; };
+         rhs = [ T RType; NT NTsimpletype; T REquals; NT NTtype ]; };
 
        { lhs = NTtopdecl;
          rhs = [ T RData; NT NTsimpletype; T REquals; NT NTconstrs; NT NTderiving ]; };
