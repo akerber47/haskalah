@@ -549,17 +549,25 @@ let build_tables cfg cc =
         (* If dot is immediately before terminal, shift action. *)
         match terminal_after_dot cfg itm with
         | (Some t) ->
-            (* Check for already filled (but distinct!) entry -> error *)
-            if Map.mem (i,t) !actions &&
-                (Map.find (i,t) !actions <>
-                  (Shift (Map.find (i,(T t)) cc.gotos))) then begin
-              if Map.find (i,t) !actions <> Conflict then
-                Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
-                  i tm_print t
-                  action_print (Map.find (i,t) !actions)
-                  action_print (Shift (Map.find (i,(T t)) cc.gotos));
-              actions := Map.add (i,t) Conflict !actions
-            end
+            if Map.mem (i,t) !actions then
+              let a = Map.find (i,t) !actions in
+              match a with
+              (* Already filled with correct entry, do nothing *)
+              | (Shift s) when s = (Map.find (i,(T t)) cc.gotos) -> ()
+              (* No such thing as a shift-shift conflict - this indicates
+               * programming error in the parser generator *)
+              | (Shift _) -> assert false
+              (* We resolve shift-reduce conflicts by shifting, so any
+               * preexisting reduce, accept, or reduce-reduce conflict gets
+               * overwritten here. *)
+              | (Reduce _)
+              | (Accept _)
+              | Conflict ->
+                Util.dbg "Generated (%d, %a) -> Shift %d [was %a]\n"
+                  i tm_print t (Map.find (i,(T t)) cc.gotos) action_print a;
+                actions := Map.add (i,t)
+                                   (Shift (Map.find (i,(T t)) cc.gotos))
+                                   !actions
             else begin
               Util.dbg "Generated (%d, %a) -> Shift %d\n"
                 i tm_print t (Map.find (i,(T t)) cc.gotos);
@@ -568,46 +576,39 @@ let build_tables cfg cc =
                                  !actions
             end
         | None -> ();
-        (* If dot is at end of production, reduce action on lookahead. *)
+        (* If dot is at end of production, reduce/accept action on lookahead. *)
         if itm.dot = List.length cfg.productions.(itm.prod).rhs then
           (* Unless it's the goal production with EOF, in which case accept. *)
-          if cfg.productions.(itm.prod).lhs = cfg.goal &&
-              itm.lookahead = Pga.eof then
-            (* Check for already filled (but distinct!) entry -> error *)
-            if Map.mem (i,itm.lookahead) !actions &&
-                (Map.find (i,itm.lookahead) !actions <> (Accept itm.prod)) then
-            begin
-              if Map.find (i,itm.lookahead) !actions <> Conflict then
-                Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
-                  i tm_print itm.lookahead
-                  action_print (Map.find (i,itm.lookahead) !actions)
-                  action_print (Accept itm.prod);
+          let newact =
+            if cfg.productions.(itm.prod).lhs = cfg.goal &&
+                itm.lookahead = Pga.eof then
+              Accept itm.prod
+            else
+              Reduce itm.prod
+          in
+          (* Check for already filled (but distinct!) entry -> error *)
+          if Map.mem (i,itm.lookahead) !actions then
+            let a = Map.find (i,itm.lookahead) !actions in
+            match a with
+            (* Already filled with correct entry, do nothing *)
+            | act when act = newact -> ()
+            (* Resolve shift-reduce conflicts by shifting *)
+            | (Shift _) -> ()
+            (* If already a conflict, no need to keep reporting *)
+            | Conflict -> ()
+            | _ -> begin
+              Util.dbg2 "R-R conflict at (%d,%a) between (%a) and (%a)\n"
+                i tm_print itm.lookahead
+                action_print a
+                action_print newact;
               actions := Map.add (i,itm.lookahead) Conflict !actions
             end
-            else begin
-              Util.dbg "Generated (%d, %a) -> Accept [%d] %a\n"
-                i tm_print itm.lookahead itm.prod
-                production_print cfg.productions.(itm.prod);
-              actions := Map.add (i,itm.lookahead) (Accept itm.prod) !actions
-            end
-          else
-            (* Check for already filled (but distinct!) entry -> error *)
-            if Map.mem (i,itm.lookahead) !actions &&
-                (Map.find (i,itm.lookahead) !actions <> (Reduce itm.prod)) then
-            begin
-              if Map.find (i,itm.lookahead) !actions <> Conflict then
-                Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
-                  i tm_print itm.lookahead
-                  action_print (Map.find (i,itm.lookahead) !actions)
-                  action_print (Reduce itm.prod);
-              actions := Map.add (i,itm.lookahead) Conflict !actions
-            end
-            else begin
-              Util.dbg "Generated (%d, %a) -> Reduce [%d] %a\n"
-                i tm_print itm.lookahead itm.prod
-                production_print cfg.productions.(itm.prod);
-              actions := Map.add (i,itm.lookahead) (Reduce itm.prod) !actions;
-            end
+          else begin
+            Util.dbg "Generated (%d, %a) -> [%a] %a \n"
+              i tm_print itm.lookahead action_print newact
+              production_print cfg.productions.(itm.prod);
+            actions := Map.add (i,itm.lookahead) (Accept itm.prod) !actions
+          end
       end)
       (Map.find i cc.itemsets);
   done;
