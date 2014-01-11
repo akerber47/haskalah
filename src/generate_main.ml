@@ -175,9 +175,6 @@ let haskell_cfg = {
          rhs = [ NT NTcon ]; };
 
        { lhs = NTtopdecls;
-         rhs = []; };
-
-       { lhs = NTtopdecls;
          rhs = [ NT NTtopdecllist ]; };
 
        { lhs = NTtopdecllist;
