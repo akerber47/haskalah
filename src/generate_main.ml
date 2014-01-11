@@ -42,9 +42,6 @@ let haskell_cfg = {
        { lhs = NTbody;
          rhs = [ T LCurly; NT NTtopdecls; T RCurly ]; };
 
-       { lhs = NTbody;
-         rhs = [ T LCurly; NT NTtopdecls; T RCurly ]; };
-
        { lhs = NTimpdecls;
          rhs = [ NT NTimpdecllist ]; };
 
@@ -749,12 +746,6 @@ let haskell_cfg = {
 
        { lhs = NTpat10;
          rhs = [ NT NTgcon; NT NTapatlist ]; };
-
-       { lhs = NTapatlist;
-         rhs = [ NT NTapat; NT NTapatlist ]; };
-
-       { lhs = NTapatlist;
-         rhs = [ NT NTapat ]; };
 
        { lhs = NTapat;
          rhs = [ NT NTvar; T RAt; NT NTapat ]; };
