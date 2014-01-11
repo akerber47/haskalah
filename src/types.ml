@@ -68,7 +68,7 @@ type nonterm =
   | NTimpdecl
   | NTimpspec
   | NTimport
-  | NTcname
+  | NTqcname
   | NTtopdecls
   | NTtopdecl
   | NTdecls
@@ -148,7 +148,7 @@ type nonterm =
   (* Comma-separated *)
   | NTimpdecllist
   | NTexportlist
-  | NTcnamelist
+  | NTqcnamelist
   | NTqvarlist
   | NTimportlist
   | NTtopdecllist

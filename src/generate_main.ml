@@ -79,7 +79,7 @@ let haskell_cfg = {
          rhs = [ NT NTqconid; T LParen; T RParen ]; };
 
        { lhs = NTexport;
-         rhs = [ NT NTqconid; T LParen; NT NTcnamelist; T RParen ]; };
+         rhs = [ NT NTqconid; T LParen; NT NTqcnamelist; T RParen ]; };
 
        { lhs = NTexport;
          rhs = [ T RModule; T ConId ]; };
@@ -148,13 +148,13 @@ let haskell_cfg = {
          rhs = [ T VarId; T LParen; T RParen ]; };
 
        { lhs = NTimport;
-         rhs = [ T VarId; T LParen; NT NTcnamelist; T RParen ]; };
+         rhs = [ T VarId; T LParen; NT NTqcnamelist; T RParen ]; };
 
-       { lhs = NTcname;
-         rhs = [ NT NTvar ]; };
+       { lhs = NTqcname;
+         rhs = [ NT NTqvar ]; };
 
-       { lhs = NTcname;
-         rhs = [ NT NTcon ]; };
+       { lhs = NTqcname;
+         rhs = [ NT NTqcon ]; };
 
        { lhs = NTtopdecls;
          rhs = [ NT NTtopdecllist ]; };
