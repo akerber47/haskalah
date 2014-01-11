@@ -562,13 +562,7 @@ let haskell_cfg = {
          rhs = [ T RDo; T LCurly; NT NTstmts; T RCurly ]; };
 
        { lhs = NTexp10;
-         rhs = [ NT NTfexp ]; };
-
-       { lhs = NTfexp;
-         rhs = [ NT NTfexp; NT NTaexp ]; };
-
-       { lhs = NTfexp;
-         rhs = [ NT NTaexp ]; };
+         rhs = [ NT NTaexplist ]; };
 
        { lhs = NTaexp;
          rhs = [ NT NTqvar ]; };

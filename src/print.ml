@@ -117,7 +117,6 @@ let nonterm_print o nt =
     | NTexp -> "NTexp"
     | NTinfixexp -> "NTinfixexp"
     | NTexp10 -> "NTexp10"
-    | NTfexp -> "NTfexp"
     | NTaexp -> "NTaexp"
     | NTqual -> "NTqual"
     | NTalts -> "NTalts"

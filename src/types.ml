@@ -104,7 +104,6 @@ type nonterm =
   | NTexp
   | NTinfixexp (* see note above *)
   | NTexp10
-  | NTfexp
   | NTaexp
   | NTqual
   | NTalts
