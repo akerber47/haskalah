@@ -110,7 +110,6 @@ let nonterm_print o nt =
     | NTderiving -> "NTderiving"
     | NTdclass -> "NTdclass"
     | NTinst -> "NTinst"
-    | NTfunlhs -> "NTfunlhs"
     | NTrhs -> "NTrhs"
     | NTgdrhs -> "NTgdrhs"
     | NTgd -> "NTgd"

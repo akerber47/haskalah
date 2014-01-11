@@ -229,7 +229,7 @@ let haskell_cfg = {
          rhs = [ NT NTgendecl ]; };
 
        { lhs = NTdecl;
-         rhs = [ NT NTfunlhs; NT NTrhs ]; };
+         rhs = [ NT NTinfixexp; NT NTrhs ]; };
 
        { lhs = NTcdecls;
          rhs = [ T LCurly; T RCurly ]; };
@@ -247,7 +247,7 @@ let haskell_cfg = {
          rhs = [ NT NTgendecl ]; };
 
        { lhs = NTcdecl;
-         rhs = [ NT NTfunlhs; NT NTrhs ]; };
+         rhs = [ NT NTinfixexp; NT NTrhs ]; };
 
        { lhs = NTcdecl;
          rhs = [ NT NTqvar; NT NTrhs ]; };
@@ -268,7 +268,7 @@ let haskell_cfg = {
          rhs = []; };
 
        { lhs = NTidecl;
-         rhs = [ NT NTfunlhs; NT NTrhs ]; };
+         rhs = [ NT NTinfixexp; NT NTrhs ]; };
 
        { lhs = NTidecl;
          rhs = [ NT NTqvar; NT NTrhs ]; };
@@ -497,12 +497,6 @@ let haskell_cfg = {
 
        { lhs = NTtyvarcommalist;
          rhs = [ T VarId ]; };
-
-       { lhs = NTfunlhs;
-         rhs = [ NT NTqvar; NT NTaexplist ]; };
-
-       { lhs = NTfunlhs;
-         rhs = [ NT NTinfixexp; NT NTqvarop; NT NTinfixexp]; };
 
        { lhs = NTaexplist;
          rhs = [ NT NTaexp; NT NTaexplist ]; };

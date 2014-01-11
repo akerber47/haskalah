@@ -97,7 +97,6 @@ type nonterm =
   | NTderiving
   | NTdclass
   | NTinst
-  | NTfunlhs
   | NTrhs
   | NTgdrhs
   | NTgd
