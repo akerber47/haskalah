@@ -113,11 +113,6 @@ type nonterm =
   | NTstmts
   | NTstmt
   | NTfbind
-  | NTpat
-  | NTinfixpat (* see note above *)
-  | NTpat10
-  | NTapat
-  | NTfpat
   | NTgcon
   | NTvar
   | NTqvar
@@ -163,8 +158,6 @@ type nonterm =
   | NTexplist
   | NTquallist
   | NTfbindlist
-  | NTfpatlist
-  | NTpatlist
   | NTtyvarcommalist
   (* Semicolon-separated *)
   | NTdecllist
@@ -176,7 +169,7 @@ type nonterm =
   (* Whitespace (nothing) separated *)
   | NTatypelist
   | NTtyvarlist
-  | NTapatlist
+  | NTaexplist
   | NTstmtlist
   | NTqvarid (* For an optionally qualified varid (matches VarId or QVarId *)
   | NTqconid

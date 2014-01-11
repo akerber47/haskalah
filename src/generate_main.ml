@@ -499,16 +499,16 @@ let haskell_cfg = {
          rhs = [ T VarId ]; };
 
        { lhs = NTfunlhs;
-         rhs = [ NT NTvar; NT NTapatlist ]; };
+         rhs = [ NT NTvar; NT NTaexplist ]; };
 
        { lhs = NTfunlhs;
-         rhs = [ NT NTinfixpat; NT NTvarop; NT NTinfixpat]; };
+         rhs = [ NT NTinfixexp; NT NTvarop; NT NTinfixexp]; };
 
-       { lhs = NTapatlist;
-         rhs = [ NT NTapat; NT NTapatlist ]; };
+       { lhs = NTaexplist;
+         rhs = [ NT NTaexp; NT NTaexplist ]; };
 
-       { lhs = NTapatlist;
-         rhs = [ NT NTapat ]; };
+       { lhs = NTaexplist;
+         rhs = [ NT NTaexp ]; };
 
        { lhs = NTrhs;
          rhs = [ T REquals; NT NTexp; T RWhere; NT NTdecls ]; };
@@ -547,7 +547,7 @@ let haskell_cfg = {
          rhs = [ NT NTexp10 ]; };
 
        { lhs = NTexp10;
-         rhs = [ T RBackslash; NT NTapatlist; T RDashRArrow; NT NTexp ]; };
+         rhs = [ T RBackslash; NT NTaexplist; T RDashRArrow; NT NTexp ]; };
 
        { lhs = NTexp10;
          rhs = [ T RLet; NT NTdecls; T RIn; NT NTexp ]; };
@@ -618,6 +618,15 @@ let haskell_cfg = {
        { lhs = NTaexp;
          rhs = [ NT NTaexp; T LCurly; NT NTfbindlist; T RCurly ]; };
 
+       { lhs = NTaexp;
+         rhs = [ NT NTvar; T RAt; NT NTaexp ]; };
+
+       { lhs = NTaexp;
+         rhs = [ T RTilde; NT NTaexp ]; };
+
+       { lhs = NTaexp;
+         rhs = [ T RUnderscore ]; };
+
        { lhs = NTexplist;
          rhs = [ NT NTexp; T Comma; NT NTexplist ]; };
 
@@ -637,7 +646,7 @@ let haskell_cfg = {
          rhs = [ NT NTfbind ]; };
 
        { lhs = NTqual;
-         rhs = [ NT NTpat; T RLArrowDash; NT NTexp ]; };
+         rhs = [ NT NTexp; T RLArrowDash; NT NTexp ]; };
 
        { lhs = NTqual;
          rhs = [ T RLet; NT NTdecls ]; };
@@ -655,16 +664,16 @@ let haskell_cfg = {
          rhs = [ NT NTalt ]; };
 
        { lhs = NTalt;
-         rhs = [ NT NTpat; T RDashRArrow; NT NTexp; T RWhere; NT NTdecls ]; };
+         rhs = [ NT NTexp; T RDashRArrow; NT NTexp; T RWhere; NT NTdecls ]; };
 
        { lhs = NTalt;
-         rhs = [ NT NTpat; T RDashRArrow; NT NTexp ]; };
+         rhs = [ NT NTexp; T RDashRArrow; NT NTexp ]; };
 
        { lhs = NTalt;
-         rhs = [ NT NTpat; NT NTgdpat; T RWhere; NT NTdecls ]; };
+         rhs = [ NT NTexp; NT NTgdpat; T RWhere; NT NTdecls ]; };
 
        { lhs = NTalt;
-         rhs = [ NT NTpat; NT NTgdpat ]; };
+         rhs = [ NT NTexp; NT NTgdpat ]; };
 
        { lhs = NTgdpat;
          rhs = [ NT NTgd; T RDashRArrow; NT NTexp; NT NTgdpat ]; };
@@ -694,7 +703,7 @@ let haskell_cfg = {
          rhs = [ NT NTexp; T Semicolon ]; };
 
        { lhs = NTstmt;
-         rhs = [ NT NTpat; T RLArrowDash; NT NTexp; T Semicolon ]; };
+         rhs = [ NT NTexp; T RLArrowDash; NT NTexp; T Semicolon ]; };
 
        { lhs = NTstmt;
          rhs = [ T RLet; NT NTdecls; T Semicolon ]; };
@@ -704,69 +713,6 @@ let haskell_cfg = {
 
        { lhs = NTfbind;
          rhs = [ NT NTqvar; T REquals; NT NTexp ]; };
-
-       { lhs = NTpat;
-         rhs = [ NT NTinfixpat ]; };
-
-       { lhs = NTinfixpat;
-         rhs = [ NT NTpat10; NT NTqconop; NT NTinfixpat ]; };
-
-       { lhs = NTinfixpat;
-         rhs = [ NT NTpat10 ]; };
-
-       { lhs = NTpat10;
-         rhs = [ NT NTapat ]; };
-
-       { lhs = NTpat10;
-         rhs = [ NT NTgcon; NT NTapatlist ]; };
-
-       { lhs = NTapat;
-         rhs = [ NT NTvar; T RAt; NT NTapat ]; };
-
-       { lhs = NTapat;
-         rhs = [ NT NTvar ]; };
-
-       { lhs = NTapat;
-         rhs = [ NT NTgcon ]; };
-
-       { lhs = NTapat;
-         rhs = [ NT NTqcon; T LCurly; T RCurly ]; };
-
-       { lhs = NTapat;
-         rhs = [ NT NTqcon; T LCurly; NT NTfpatlist; T RCurly ]; };
-
-       { lhs = NTapat;
-         rhs = [ NT NTliteral ]; };
-
-       { lhs = NTapat;
-         rhs = [ T RUnderscore ]; };
-
-       { lhs = NTapat;
-         rhs = [ T LParen; NT NTpat; T RParen ]; };
-
-       { lhs = NTapat;
-         rhs = [ T LParen; NT NTpat; NT NTpatlist; T RParen ]; };
-
-       { lhs = NTapat;
-         rhs = [ T LSquare; NT NTpatlist; T RSquare ]; };
-
-       { lhs = NTapat;
-         rhs = [ T RTilde; NT NTapat ]; };
-
-       { lhs = NTfpatlist;
-         rhs = [ NT NTfpat; T Comma; NT NTfpatlist ]; };
-
-       { lhs = NTfpatlist;
-         rhs = [ NT NTfpat ]; };
-
-       { lhs = NTpatlist;
-         rhs = [ NT NTpat; T Comma; NT NTpatlist ]; };
-
-       { lhs = NTpatlist;
-         rhs = [ NT NTpat ]; };
-
-       { lhs = NTfpat;
-         rhs = [ NT NTqvar; T REquals; NT NTpat ]; };
 
        { lhs = NTgcon;
          rhs = [ T LParen; T RParen ]; };
