@@ -3,16 +3,84 @@ open Batteries
 (* Using pre-existing parser generators is LAME, so this is a hand-rolled one.
  * What could possibly go wrong? *)
 
-(* Types / functions a parser generator needs to know in order to build a
- * parser for a given grammar. Input type for Make *)
+(* The parser generator is divided into 2 components. The first takes in a
+ * grammar and outputs transition table code needed to parse that grammar. The
+ * second compiles that transition table code into a pushdown automaton
+ * simulator needed to parse that grammar. We implement each of these as
+ * functors (to make it easier to write test code with different terminal /
+ * nonterminal types in our grammar), the first as Make_gen and
+ * the second as Make_sim. *)
+
+(* Types / functions a parser generator needs to know in order to build parsing
+ * tables for a given grammar. Input type for Make_gen *)
 module type Parse_gen_able = sig
   type tm (* Terminals in grammar *)
-  val tm_compare : tm -> tm -> int
   type ntm (* Nonterminals in grammar *)
-  val ntm_compare : ntm -> ntm -> int
+  val eof : tm (* End of file terminal *)
+  (* Functions for printing debug output *)
+  val tm_print : 'a BatIO.output -> tm -> unit
+  val ntm_print : 'a BatIO.output -> ntm -> unit
+end;;
+
+(* Output type for Make_gen. Fully typed-out parser generator types needed for
+ * table creation. *)
+module type Pg = sig
+
+(* Types copied over from input module *)
+type term
+type nonterm
+
+type symbol =
+  | T of term
+  | NT of nonterm
+
+type production = {
+  lhs : nonterm;
+  rhs : symbol list;
+}
+
+type grammar = {
+  goal : nonterm;
+  productions : production Array.t;
+}
+
+(* States and tables of the resulting pushdown automaton. State numbers will
+ * be the indices of the corresponding itemsets in the CC. *)
+type state = int
+
+type action =
+  | Shift of state
+  (* Store index of production (in grammar list) we use to reduce. *)
+  | Reduce of int
+  (* Store index of goal production we use to accept *)
+  | Accept of int
+  (* Will print this in the outputted table whenever there is a conflict. Note
+   * that the generated code will *not* compile if any generated Conflict
+   * entries are not removed manually. *)
+  | Conflict
+
+(* Given a grammar, computes the states and transition tables of the pushdown
+ * automaton that can simulate the grammar. Write these (in ocaml source form)
+ * into the given file as 2 functions,
+ * computed_do_action and computed_do_goto *)
+val output_tables : grammar -> string -> unit
+
+end;;
+
+module Make_gen : functor (Pga : Parse_gen_able) -> Pg
+  with type term = Pga.tm
+   and type nonterm = Pga.ntm
+;;
+
+(* Types / functions a parser generator needs to know in order to simulate the
+ * operation of a parsing table for a given grammar (augmented with semantic
+ * actions). *)
+module type Parse_sim_able = sig
+  type tm (* Terminals in grammar *)
+  type ntm (* Nonterminals in grammar *)
+  val eof : tm (* End of file terminal *)
   type lx (* Lexeme input for generated parser *)
   val lx_to_tm : lx -> tm (* Extract terminal symbol info from lexeme *)
-  val eof : tm (* End of file terminal *)
   type ast (* AST output for generated parser *)
   (* Functions for printing debug output *)
   val tm_print : 'a BatIO.output -> tm -> unit
@@ -21,8 +89,10 @@ module type Parse_gen_able = sig
   val ast_print : 'a BatIO.output -> ast -> unit
 end;;
 
-(* Output type for Make. A fully typed-out parser generator. *)
-module type P = sig
+
+(* Output type for Make_sim. Fully typed-out parser simulator once given
+ * appropriate transition tables. *)
+module type Ps = sig
 
 (* Types copied over from input module *)
 type term
@@ -34,7 +104,7 @@ type symbol =
   | T of term
   | NT of nonterm
 
-type production = {
+type aug_production = {
   lhs : nonterm;
   rhs : symbol list;
   (* Semantic action to be applied to the list of return values of the
@@ -42,50 +112,12 @@ type production = {
   semantic_action : (ast list -> ast);
 }
 
-type grammar = {
+type aug_grammar = {
   goal : nonterm;
-  productions : production Array.t;
+  productions : aug_production Array.t;
   (* Semantic action to be applied when matching any terminal symbol. Taken as
    * input the matched lexeme (to extract its contents, line/col #s, etc. *)
   terminal_action : (lexeme -> ast);
-}
-
-(* Represents a FIRST set. FIRST(string of grammar symbols) = the set of all
- * first terminals in terminal-strings that match the given symbol-string.
- * i.e., look at all possible grammar expansions of the given symbol-string.
- * The first elements of those expansions make up the FIRST set.  If the
- * symbol-string can expand to an empty terminal-string, we say that the FIRST
- * set also includes epsilon, in addition to ordinary terminals. *)
-type first_set = {
-  terms : term Set.t; (* "Actual" (non-epsilon) terminals in the set. *)
-  has_epsilon : bool; (* Whether or not the set includes epsilon *)
-}
-
-(* Items in the canonical LR(1) construction. An item represents a "possible
- * production match" for our parser as it reads in tokens (terminal symbols).
- * Sets of these (ie "all possible matches at this point") will be used to
- * construct states for our parser.
- * prod = production we are matching against (the rhs of)
- * dot = how far in the production we've matched so far (i.e. when we read
- *       another token, what's the next thing in rhs it must match)
- * lookahead = next thing we're matching against, after the rhs. Without this
- *             we'd be doing LR(0). *)
-type item = {
-  prod : int; (* Index into given array of productions *)
-  dot : int; (* from 0 up to length of rhs of production *)
-  lookahead : term;
-}
-
-(* Represents the "canonical collection" (CC) of sets of items for our CFG.
- * These item sets will be the states of our parsing pushdown automaton. Each
- * item set stores items that match all the possible inputs the parser
- * is ready to receive at a given time. We also keep track of the transitions
- * between these item sets that take place when the parser processes an input
- * (ie a terminal in the grammar). *)
-type cc = {
-  itemsets : (int, item Set.t) Map.t; (* Store each itemset with an index... *)
-  gotos : (int * symbol, int) Map.t; (* so we can look up gotos by index *)
-  num_itemsets : int;
 }
 
 (* States and tables of the resulting pushdown automaton. State numbers will
@@ -99,49 +131,18 @@ type action =
   (* Store index of goal production we use to accept *)
   | Accept of int
 
-(* Stores the actions for the pushdown automaton to take upon receiving a
- * terminal in a state - either "shift" (push+transition to a new state) or
- * "reduce" - (pop a bunch of old states, then apply a reduction).
- * Note that these actions also must be carried out on the actual asts when
- * parsing - i.e., shift pushes a new ast built from the most recent terminal,
- * and reduce combines the asts corresponding to the popped states. *)
-type action_table = (state * term, action) Map.t
-(* Stores the next state for the pushdown automaton to push+transition to after
- * performing a reduce action. We can't store these in the action table because
- * they depend on the state on the stack *underneath* all the popped states -
- * ie the things the parser will be ready to match *after* it's "completed a
- * submatch" corresponding to the reduced state. *)
-type goto_table = (state * nonterm, state) Map.t
-
-(* Compute the FIRST sets for nonterminals in a grammar. *)
-val first_sets : grammar -> (nonterm, first_set) Map.t
-
-(* Given the computed FIRST sets, find FIRST for an arbitrary input string
- * (list of symbols). *)
-val first_set_string : (nonterm, first_set) Map.t ->
-  symbol list -> first_set
-
-(* Build the LR(1) canonical collection for a grammar. *)
-val build_cc : grammar -> cc
-
-(* Use the canonical collection to build the transition tables for the pushdown
- * automaton. The resulting automaton always has state 0 as the start state. *)
-val build_tables : grammar -> cc -> action_table * goto_table
-
-(* Simulate the resulting pushdown automaton. *)
-val simulate : grammar -> action_table -> goto_table ->
-    lexeme Queue.t -> ast
-
-(* Overall function: basically applies the more detailed functions below in the
- * appropriate sequence to build the canonical collection and transition
- * tables, and simulate the resulting automaton. *)
-val generate : grammar -> lexeme Queue.t -> ast
+(* Given an augmented grammar and functions implementing the action and goto
+ * tables of the pushdown automaton, simulates it to parse the given queue of
+ * lexemes, building an AST. The input functions are presumably obtained by
+ * running Pg.output_tables, though they could always be written by hand. *)
+val simulate : aug_grammar -> (state * term -> action) ->
+  (state * nonterm -> state) -> lexeme Queue.t -> ast
 
 end;;
 
-module Make : functor (Pga : Parse_gen_able) -> P
-  with type term = Pga.tm
-   and type nonterm = Pga.ntm
-   and type lexeme = Pga.lx
-   and type ast = Pga.ast
+module Make_sim : functor (Psa : Parse_sim_able) -> Ps
+  with type term = Psa.tm
+   and type nonterm = Psa.ntm
+   and type lexeme = Psa.lx
+   and type ast = Psa.ast
 ;;

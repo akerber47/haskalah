@@ -8,16 +8,72 @@ open Batteries
  * LR(1). *)
 
 (* --- BEGIN DUPLICATED MODULE TYPES from mli --- *)
-(* Types / functions a parser generator needs to know in order to build a
- * parser for a given grammar. Input type for Make *)
+
+(* Types / functions a parser generator needs to know in order to build parsing
+ * tables for a given grammar. Input type for Make_gen *)
 module type Parse_gen_able = sig
   type tm (* Terminals in grammar *)
-  val tm_compare : tm -> tm -> int
   type ntm (* Nonterminals in grammar *)
-  val ntm_compare : ntm -> ntm -> int
+  val eof : tm (* End of file terminal *)
+  (* Functions for printing debug output *)
+  val tm_print : 'a BatIO.output -> tm -> unit
+  val ntm_print : 'a BatIO.output -> ntm -> unit
+end;;
+
+(* Output type for Make_gen. Fully typed-out parser generator types needed for
+ * table creation. *)
+module type Pg = sig
+
+(* Types copied over from input module *)
+type term
+type nonterm
+
+type symbol =
+  | T of term
+  | NT of nonterm
+
+type production = {
+  lhs : nonterm;
+  rhs : symbol list;
+}
+
+type grammar = {
+  goal : nonterm;
+  productions : production Array.t;
+}
+
+(* States and tables of the resulting pushdown automaton. State numbers will
+ * be the indices of the corresponding itemsets in the CC. *)
+type state = int
+
+type action =
+  | Shift of state
+  (* Store index of production (in grammar list) we use to reduce. *)
+  | Reduce of int
+  (* Store index of goal production we use to accept *)
+  | Accept of int
+  (* Will print this in the outputted table whenever there is a conflict. Note
+   * that the generated code will *not* compile if any generated Conflict
+   * entries are not removed manually. *)
+  | Conflict
+
+(* Given a grammar, computes the states and transition tables of the pushdown
+ * automaton that can simulate the grammar. Write these (in ocaml source form)
+ * into the given file as 2 functions,
+ * computed_do_action and computed_do_goto *)
+val output_tables : grammar -> string -> unit
+
+end;;
+
+(* Types / functions a parser generator needs to know in order to simulate the
+ * operation of a parsing table for a given grammar (augmented with semantic
+ * actions). *)
+module type Parse_sim_able = sig
+  type tm (* Terminals in grammar *)
+  type ntm (* Nonterminals in grammar *)
+  val eof : tm (* End of file terminal *)
   type lx (* Lexeme input for generated parser *)
   val lx_to_tm : lx -> tm (* Extract terminal symbol info from lexeme *)
-  val eof : tm (* End of file terminal *)
   type ast (* AST output for generated parser *)
   (* Functions for printing debug output *)
   val tm_print : 'a BatIO.output -> tm -> unit
@@ -26,8 +82,10 @@ module type Parse_gen_able = sig
   val ast_print : 'a BatIO.output -> ast -> unit
 end;;
 
-(* Output type for Make. A fully typed-out parser generator. *)
-module type P = sig
+
+(* Output type for Make_sim. Fully typed-out parser simulator once given
+ * appropriate transition tables. *)
+module type Ps = sig
 
 (* Types copied over from input module *)
 type term
@@ -39,7 +97,7 @@ type symbol =
   | T of term
   | NT of nonterm
 
-type production = {
+type aug_production = {
   lhs : nonterm;
   rhs : symbol list;
   (* Semantic action to be applied to the list of return values of the
@@ -47,13 +105,66 @@ type production = {
   semantic_action : (ast list -> ast);
 }
 
-type grammar = {
+type aug_grammar = {
   goal : nonterm;
-  productions : production Array.t;
+  productions : aug_production Array.t;
   (* Semantic action to be applied when matching any terminal symbol. Taken as
    * input the matched lexeme (to extract its contents, line/col #s, etc. *)
   terminal_action : (lexeme -> ast);
 }
+
+(* States and tables of the resulting pushdown automaton. State numbers will
+ * be the indices of the corresponding itemsets in the CC. *)
+type state = int
+
+type action =
+  | Shift of state
+  (* Store index of production (in grammar list) we use to reduce. *)
+  | Reduce of int
+  (* Store index of goal production we use to accept *)
+  | Accept of int
+
+(* Given an augmented grammar and functions implementing the action and goto
+ * tables of the pushdown automaton, simulates it to parse the given queue of
+ * lexemes, building an AST. The input functions are presumably obtained by
+ * running Pg.output_tables, though they could always be written by hand. *)
+val simulate : aug_grammar -> (state * term -> action) ->
+  (state * nonterm -> state) -> lexeme Queue.t -> ast
+
+end;;
+
+(* --- END DUPLICATED TYPES from mli --- *)
+
+module Make_gen(Pga : Parse_gen_able) = struct
+
+type term = Pga.tm
+type nonterm = Pga.ntm
+let tm_print = Pga.tm_print
+let ntm_print = Pga.ntm_print
+
+type symbol =
+  | T of term
+  | NT of nonterm
+
+type production = {
+  lhs : nonterm;
+  rhs : symbol list;
+}
+
+type grammar = {
+  goal : nonterm;
+  productions : production Array.t;
+}
+
+(* States and tables of the resulting pushdown automaton. State numbers will
+ * be the indices of the corresponding itemsets. *)
+type state = int
+
+type action =
+  | Shift of state
+  | Reduce of int
+  | Accept of int
+  | Conflict
 
 (* Represents a FIRST set. FIRST(string of grammar symbols) = the set of all
  * first terminals in terminal-strings that match the given symbol-string.
@@ -92,120 +203,6 @@ type cc = {
   gotos : (int * symbol, int) Map.t; (* so we can look up gotos by index *)
   num_itemsets : int;
 }
-
-(* States and tables of the resulting pushdown automaton. State numbers will
- * be the indices of the corresponding itemsets in the CC. *)
-type state = int
-
-type action =
-  | Shift of state
-  (* Store index of production (in grammar list) we use to reduce. *)
-  | Reduce of int
-  (* Store index of goal production we use to accept *)
-  | Accept of int
-
-(* Stores the actions for the pushdown automaton to take upon receiving a
- * terminal in a state - either "shift" (push+transition to a new state) or
- * "reduce" - (pop a bunch of old states, then apply a reduction).
- * Note that these actions also must be carried out on the actual asts when
- * parsing - i.e., shift pushes a new ast built from the most recent terminal,
- * and reduce combines the asts corresponding to the popped states. *)
-type action_table = (state * term, action) Map.t
-(* Stores the next state for the pushdown automaton to push+transition to after
- * performing a reduce action. We can't store these in the action table because
- * they depend on the state on the stack *underneath* all the popped states -
- * ie the things the parser will be ready to match *after* it's "completed a
- * submatch" corresponding to the reduced state. *)
-type goto_table = (state * nonterm, state) Map.t
-
-(* Compute the FIRST sets for nonterminals in a grammar. *)
-val first_sets : grammar -> (nonterm, first_set) Map.t
-
-(* Given the computed FIRST sets, find FIRST for an arbitrary input string
- * (list of symbols). *)
-val first_set_string : (nonterm, first_set) Map.t ->
-  symbol list -> first_set
-
-(* Build the LR(1) canonical collection for a grammar. *)
-val build_cc : grammar -> cc
-
-(* Use the canonical collection to build the transition tables for the pushdown
- * automaton. The resulting automaton always has state 0 as the start state. *)
-val build_tables : grammar -> cc -> action_table * goto_table
-
-(* Simulate the resulting pushdown automaton. *)
-val simulate : grammar -> action_table -> goto_table ->
-    lexeme Queue.t -> ast
-
-(* Overall function: basically applies the more detailed functions below in the
- * appropriate sequence to build the canonical collection and transition
- * tables, and simulate the resulting automaton. *)
-val generate : grammar -> lexeme Queue.t -> ast
-
-end;;
-
-(* --- END DUPLICATED TYPES from mli --- *)
-
-module Make(Pga : Parse_gen_able) = struct
-
-type term = Pga.tm
-type nonterm = Pga.ntm
-type lexeme = Pga.lx
-type ast = Pga.ast
-let tm_print = Pga.tm_print
-let ntm_print = Pga.ntm_print
-let lx_print = Pga.lx_print
-let ast_print = Pga.ast_print
-
-type symbol =
-  | T of term
-  | NT of nonterm
-
-type production = {
-  lhs : nonterm;
-  rhs : symbol list;
-  (* Semantic action to be applied to the list of return values of the
-   * semantic actions of the terms of rhs. *)
-  semantic_action : (ast list -> ast);
-}
-
-type grammar = {
-  goal : nonterm;
-  productions : production Array.t;
-  (* Semantic action to be applied when matching any terminal symbol. Taken as
-   * input the matched lexeme (to extract its contents, line/col #s, etc. *)
-  terminal_action : (lexeme -> ast);
-}
-
-type first_set = {
-  terms : term Set.t; (* "Actual" terminals in the set. *)
-  has_epsilon : bool; (* Whether or not the set includes epsilon *)
-}
-
-(* Items in the LR(1) construction *)
-type item = {
-  prod : int;
-  dot : int;
-  lookahead : term;
-}
-
-type cc = {
-  itemsets : (int, item Set.t) Map.t; (* Store each itemset with an index... *)
-  gotos : (int * symbol, int) Map.t; (* so we can look up gotos by index *)
-  num_itemsets : int;
-}
-
-(* States and tables of the resulting pushdown automaton. State numbers will
- * be the indices of the corresponding itemsets. *)
-type state = int
-
-type action =
-  | Shift of state
-  | Reduce of int
-  | Accept of int
-
-type action_table = (state * term, action) Map.t
-type goto_table = (state * nonterm, state) Map.t
 
 exception Parser_gen_error of string
 
@@ -272,8 +269,17 @@ let cc_print cfg o cc = begin
     cc.gotos;
   Printf.fprintf o "--- End Canonical Collection ---\n"
 end
+
+let action_print o a =
+  match a with
+  | Shift s -> Printf.fprintf o "Shift %d" s
+  | Reduce n -> Printf.fprintf o "Reduce %d" n
+  | Accept n -> Printf.fprintf o "Accept %d" n
+  | Conflict -> Printf.fprintf o "Conflict"
+
 (* ---- End debug print functions ---- *)
 
+(* Compute the FIRST sets for nonterminals in a grammar. *)
 let first_sets cfg =
   let curmap = ref Map.empty
   and still_adding = ref true
@@ -331,6 +337,8 @@ let first_sets cfg =
     !curmap
   end
 
+(* Given the computed FIRST sets, find FIRST for an arbitrary input string
+ * (list of symbols). *)
 (* Same as middle loop above, but without memoizing / building table. *)
 let first_set_string fstable symbls =
   let rec first_set_string_acc syms fs =
@@ -437,6 +445,7 @@ let goto cfg fstable itmst sym =
     closure cfg fstable !next_itmst
   end
 
+(* Build the LR(1) canonical collection for a grammar. *)
 let build_cc cfg =
   (* Compute all the first sets ahead of time *)
   let fstable = first_sets cfg in
@@ -447,9 +456,9 @@ let build_cc cfg =
    * going to give the next itemset we add. *)
   and ix_first_unprocessed = ref 0
   and ix_new_itemset = ref 1
-  (* Small helper function: tries to find an itemset among itemsets we've already
-   * added. Returns Some int (the index of the itemset) if found, None if this
-   * itemset is new. *)
+  (* Small helper function: tries to find an itemset among itemsets we've
+   * already added. Returns Some int (the index of the itemset) if found, None
+   * if this itemset is new. *)
   in let lookup_itemset itmst =
     let rec do_ix i =
       if i < !ix_new_itemset then
@@ -518,8 +527,21 @@ let build_cc cfg =
       num_itemsets = !ix_new_itemset; }
   end
 
+(* Use the canonical collection to build the transition tables for the pushdown
+ * automaton. The resulting automaton always has state 0 as the start state. *)
 let build_tables cfg cc =
+  (* Stores the actions for the pushdown automaton to take upon receiving a
+   * terminal in a state - either "shift" (push+transition to a new state) or
+   * "reduce" - (pop a bunch of old states, then apply a reduction).  Note that
+   * these actions also must be carried out on the actual asts when parsing -
+   * i.e., shift pushes a new ast built from the most recent terminal, and
+   * reduce combines the asts corresponding to the popped states. *)
   let actions = ref Map.empty
+  (* Stores the next state for the pushdown automaton to push+transition to
+   * after performing a reduce action. We can't store these in the action table
+   * because they depend on the state on the stack *underneath* all the popped
+   * states - ie the things the parser will be ready to match *after* it's
+   * "completed a submatch" corresponding to the reduced state. *)
   and gotos = ref Map.empty
   in for i = 0 to (cc.num_itemsets - 1) do
     (* Build that row of the action table *)
@@ -586,7 +608,72 @@ let build_tables cfg cc =
     !gotos;
   (!actions, !gotos)
 
-let simulate cfg acts gotos lexemes =
+let output_tables cfg outfilename =
+  let mycc = build_cc cfg in
+  let (actions, gotos) = build_tables cfg mycc in
+  let o = open_out outfilename in begin
+    Printf.fprintf o "(* You probably want to add some imports here. *)\n";
+    Printf.fprintf o "(* --- BEGIN AUTOGENERATED CODE --- *)\n";
+    Printf.fprintf o "let computed_do_action (s,t) =\n";
+    Printf.fprintf o "  match (s,t) with\n";
+    Map.iter
+      (fun (s,t) a ->
+        Printf.fprintf o "  | (%d,%a) -> %a\n" s tm_print t action_print a)
+      actions;
+    Printf.fprintf o ";;\n\n";
+    Printf.fprintf o "let computed_do_goto (s,nt) =\n";
+    Map.iter
+      (fun (s,nt) s2 ->
+        Printf.fprintf o "  | (%d,%a) -> %d\n" s ntm_print nt s2)
+      gotos;
+    Printf.fprintf o ";;\n\n";
+    close_out o
+  end
+
+
+end ;;
+
+module Make_sim(Psa : Parse_sim_able) = struct
+
+type term = Psa.tm
+type nonterm = Psa.ntm
+type lexeme = Psa.lx
+type ast = Psa.ast
+let tm_print = Psa.tm_print
+let ntm_print = Psa.ntm_print
+let lx_print = Psa.lx_print
+let ast_print = Psa.ast_print
+
+type symbol =
+  | T of term
+  | NT of nonterm
+
+type aug_production = {
+  lhs : nonterm;
+  rhs : symbol list;
+  (* Semantic action to be applied to the list of return values of the
+   * semantic actions of the terms of rhs. *)
+  semantic_action : (ast list -> ast);
+}
+
+type aug_grammar = {
+  goal : nonterm;
+  productions : aug_production Array.t;
+  (* Semantic action to be applied when matching any terminal symbol. Taken as
+   * input the matched lexeme (to extract its contents, line/col #s, etc. *)
+  terminal_action : (lexeme -> ast);
+}
+
+(* States and tables of the resulting pushdown automaton. State numbers will
+ * be the indices of the corresponding itemsets. *)
+type state = int
+
+type action =
+  | Shift of state
+  | Reduce of int
+  | Accept of int
+
+let simulate acfg do_action do_goto lexemes =
   Util.dbg "Starting simulation\n";
   (* Don't modify input queue *)
   let temp_lexemes = Queue.copy lexemes in
@@ -607,27 +694,24 @@ let simulate cfg acts gotos lexemes =
         match states with
         | [] -> assert false (* Popped too much *)
         | s::sts ->
-            if Map.mem (s,Pga.lx_to_tm nextlx) acts then
-              match Map.find (s,Pga.lx_to_tm nextlx) acts with
+              match do_action (s, Psa.lx_to_tm nextlx) with
               | (Shift nexts) -> begin
                 Util.dbg "Action: Shift %d\n" nexts;
                 (* Only on a shift do we actually take the lexeme off *)
                 ignore(Queue.take temp_lexemes);
                 (* Push the current terminal (as AST), and next state *)
                 do_nextstate (nexts::(s::sts))
-                             ((cfg.terminal_action nextlx)::asts)
+                             ((acfg.terminal_action nextlx)::asts)
               end
               | (Reduce prod_i) ->
-                  let prd = cfg.productions.(prod_i) in
+                  let prd = acfg.productions.(prod_i) in
                   let arity = List.length prd.rhs in
-                  let goto_from_st = List.nth (s::sts) arity in
-                  if Map.mem (goto_from_st, prd.lhs) gotos then begin
-                    Util.dbg "Action: Reduce [%d] %a\n"
-                      prod_i production_print prd;
+                  let goto_from_st = List.nth (s::sts) arity in begin
+                    Util.dbg "Action: Reduce [%d]\n" prod_i;
                     do_nextstate
                       (* Pop a number of states equal to the arity of
                        * the production, then push the goto value. *)
-                      ((Map.find (goto_from_st, prd.lhs) gotos)::
+                      ((do_goto (goto_from_st, prd.lhs))::
                         (List.drop arity (s::sts)))
                       (* Pop the corresponding number of ASTs and push the
                        * result of the semantic action. Note that the semantic
@@ -638,33 +722,21 @@ let simulate cfg acts gotos lexemes =
                           (List.rev (List.take arity asts)))::
                         (List.drop arity asts))
                   end
-                  else
-                    assert false (* Shouldn't have reached empty goto entry *)
               | (Accept prod_i) ->
-                  let prd = cfg.productions.(prod_i) in
+                  let prd = acfg.productions.(prod_i) in
                   let arity = List.length prd.rhs in begin
                     (* Should never have any tokens after EOF *)
                     ignore(Queue.take temp_lexemes);
                     assert (Queue.is_empty temp_lexemes);
                     (* Should have exactly arity ASTs remaining on accept *)
                     assert (arity = List.length asts);
-                    Util.dbg "Action: Accept [%d] %a\n"
-                      prod_i production_print prd;
+                    Util.dbg "Action: Accept [%d]\n" prod_i;
                     (* Call the final (goal production) semantic action on all
                      * the remaining ASTs *)
                     prd.semantic_action (List.rev asts)
                   end
-            else
-              (* If no action found, must have received invalid token. *)
-              raise (Parser_gen_error "Syntax error")
       end
   (* Start in state 0 *)
   in do_nextstate [0] []
 
-(* Finally, put it all together *)
-let generate cfg =
-  let my_cc = build_cc cfg in
-  let (my_acts,my_gotos) = build_tables cfg my_cc in
-  (fun lexemes -> simulate cfg my_acts my_gotos lexemes)
-
-end ;;
+end;;
