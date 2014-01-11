@@ -502,7 +502,7 @@ let haskell_cfg = {
          rhs = [ NT NTvar; NT NTapatlist ]; };
 
        { lhs = NTfunlhs;
-         rhs = [ NT NTinfixpat ]; };
+         rhs = [ NT NTinfixpat; NT NTvarop; NT NTinfixpat]; };
 
        { lhs = NTapatlist;
          rhs = [ NT NTapat; NT NTapatlist ]; };
