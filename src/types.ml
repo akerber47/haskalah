@@ -178,15 +178,8 @@ type nonterm =
   | NTtyvarlist
   | NTapatlist
   | NTstmtlist
-  (* Stuff that "really" belongs in the lexical grammar, but we'll deal with it
-   * here bc otherwise choosing token types requires lookahead (and lexer gets
-   * overcomplicated) *)
-  | NTtyvar
-  | NTtycon
-  | NTtycls
-  | NTmodid
-  | NTqtycon
-  | NTqtycls
+  | NTqvarid (* For an optionally qualified varid (matches VarId or QVarId *)
+  | NTqconid
   | NTliteral
 
 (* Output of parser *)

@@ -172,12 +172,8 @@ let nonterm_print o nt =
     | NTapatlist -> "NTapatlist"
     | NTaltlist -> "NTaltlist"
     | NTstmtlist -> "NTstmtlist"
-    | NTtyvar -> "NTtyvar"
-    | NTtycon -> "NTtycon"
-    | NTtycls -> "NTtycls"
-    | NTmodid -> "NTmodid"
-    | NTqtycon -> "NTqtycon"
-    | NTqtycls -> "NTqtycls"
+    | NTqvarid -> "NTqvarid"
+    | NTqconid -> "NTqconid"
     | NTliteral -> "NTliteral"
   in Printf.fprintf o "%s" s
 ;;

@@ -73,22 +73,13 @@ let haskell_cfg = {
          rhs = [ NT NTqvar ]; };
 
        { lhs = NTexport;
-         rhs = [ NT NTqtycon; T LParen; T RDotDot; T RParen ]; };
+         rhs = [ NT NTqconid; T LParen; T RDotDot; T RParen ]; };
 
        { lhs = NTexport;
-         rhs = [ NT NTqtycon; T LParen; T RParen ]; };
+         rhs = [ NT NTqconid; T LParen; T RParen ]; };
 
        { lhs = NTexport;
-         rhs = [ NT NTqtycon; T LParen; NT NTcnamelist; T RParen ]; };
-
-       { lhs = NTexport;
-         rhs = [ NT NTqtycls; T LParen; T RDotDot; T RParen ]; };
-
-       { lhs = NTexport;
-         rhs = [ NT NTqtycls; T LParen; T RParen ]; };
-
-       { lhs = NTexport;
-         rhs = [ NT NTqtycls; T LParen; NT NTqvarlist; T RParen ]; };
+         rhs = [ NT NTqconid; T LParen; NT NTcnamelist; T RParen ]; };
 
        { lhs = NTexport;
          rhs = [ T RModule; NT NTmodid ]; };
@@ -151,22 +142,13 @@ let haskell_cfg = {
          rhs = [ NT NTvar ]; };
 
        { lhs = NTimport;
-         rhs = [ NT NTtycon; T LParen; T RDotDot; T RParen ]; };
+         rhs = [ T VarId; T LParen; T RDotDot; T RParen ]; };
 
        { lhs = NTimport;
-         rhs = [ NT NTtycon; T LParen; T RParen ]; };
+         rhs = [ T VarId; T LParen; T RParen ]; };
 
        { lhs = NTimport;
-         rhs = [ NT NTtycon; T LParen; NT NTcnamelist; T RParen ]; };
-
-       { lhs = NTimport;
-         rhs = [ NT NTtycls; T LParen; T RDotDot; T RParen ]; };
-
-       { lhs = NTimport;
-         rhs = [ NT NTtycls; T LParen; T RParen ]; };
-
-       { lhs = NTimport;
-         rhs = [ NT NTtycls; T LParen; NT NTvarlist; T RParen ]; };
+         rhs = [ T VarId; T LParen; NT NTcnamelist; T RParen ]; };
 
        { lhs = NTcname;
          rhs = [ NT NTvar ]; };
@@ -897,28 +879,16 @@ let haskell_cfg = {
        { lhs = NTgconsym;
          rhs = [ T QConSym ]; };
 
-       { lhs = NTtyvar;
+       { lhs = NTqvarid;
+         rhs = [ T QVarId ]; };
+
+       { lhs = NTqvarid;
          rhs = [ T VarId ]; };
 
-       { lhs = NTtycon;
-         rhs = [ T ConId ]; };
-
-       { lhs = NTtycls;
-         rhs = [ T ConId ]; };
-
-       { lhs = NTmodid;
-         rhs = [ T ConId ]; };
-
-       { lhs = NTqtycon;
+       { lhs = NTqconid;
          rhs = [ T QConId ]; };
 
-       { lhs = NTqtycon;
-         rhs = [ T ConId ]; };
-
-       { lhs = NTqtycls;
-         rhs = [ T QConId ]; };
-
-       { lhs = NTqtycls;
+       { lhs = NTqconid;
          rhs = [ T ConId ]; };
 
        { lhs = NTliteral;
