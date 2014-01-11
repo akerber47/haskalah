@@ -504,9 +504,6 @@ let haskell_cfg = {
        { lhs = NTfunlhs;
          rhs = [ NT NTinfixpat ]; };
 
-       { lhs = NTfunlhs;
-         rhs = [ T LParen; NT NTfunlhs; T RParen; NT NTapatlist ]; };
-
        { lhs = NTapatlist;
          rhs = [ NT NTapat; NT NTapatlist ]; };
 
