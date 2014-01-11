@@ -469,7 +469,7 @@ let build_cc cfg =
     in do_ix 0
   in
   begin
-    Util.dbg "Building CC for grammar %a\n" grammar_print cfg;
+    Util.dbg2 "Building CC for grammar %a\n" grammar_print cfg;
     (* Start by adding the 0th itemset, corresponding to the start state. *)
     let itmst_zero = closure cfg fstable (List.fold_left
       (* In the start state, we want to match the goal symbol somehow
@@ -545,7 +545,7 @@ let build_tables cfg cc =
     (* Build that row of the action table *)
     Set.iter
       (fun itm -> begin
-        Util.dbg2 "Generating action entry for item %a\n" (item_print cfg) itm;
+        Util.dbg "Generating action entry for item %a\n" (item_print cfg) itm;
         (* If dot is immediately before terminal, shift action. *)
         match terminal_after_dot cfg itm with
         | (Some t) ->
@@ -553,14 +553,15 @@ let build_tables cfg cc =
             if Map.mem (i,t) !actions &&
                 (Map.find (i,t) !actions <>
                   (Shift (Map.find (i,(T t)) cc.gotos))) then begin
-              Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
-                i tm_print t
-                action_print (Map.find (i,t) !actions)
-                action_print (Shift (Map.find (i,(T t)) cc.gotos));
+              if Map.find (i,t) !actions <> Conflict then
+                Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
+                  i tm_print t
+                  action_print (Map.find (i,t) !actions)
+                  action_print (Shift (Map.find (i,(T t)) cc.gotos));
               actions := Map.add (i,t) Conflict !actions
             end
             else begin
-              Util.dbg2 "Generated (%d, %a) -> Shift %d\n"
+              Util.dbg "Generated (%d, %a) -> Shift %d\n"
                 i tm_print t (Map.find (i,(T t)) cc.gotos);
               actions := Map.add (i,t)
                                  (Shift (Map.find (i,(T t)) cc.gotos))
@@ -576,14 +577,15 @@ let build_tables cfg cc =
             if Map.mem (i,itm.lookahead) !actions &&
                 (Map.find (i,itm.lookahead) !actions <> (Accept itm.prod)) then
             begin
-              Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
-                i tm_print itm.lookahead
-                action_print (Map.find (i,itm.lookahead) !actions)
-                action_print (Accept itm.prod);
+              if Map.find (i,itm.lookahead) !actions <> Conflict then
+                Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
+                  i tm_print itm.lookahead
+                  action_print (Map.find (i,itm.lookahead) !actions)
+                  action_print (Accept itm.prod);
               actions := Map.add (i,itm.lookahead) Conflict !actions
             end
             else begin
-              Util.dbg2 "Generated (%d, %a) -> Accept [%d] %a\n"
+              Util.dbg "Generated (%d, %a) -> Accept [%d] %a\n"
                 i tm_print itm.lookahead itm.prod
                 production_print cfg.productions.(itm.prod);
               actions := Map.add (i,itm.lookahead) (Accept itm.prod) !actions
@@ -593,14 +595,15 @@ let build_tables cfg cc =
             if Map.mem (i,itm.lookahead) !actions &&
                 (Map.find (i,itm.lookahead) !actions <> (Reduce itm.prod)) then
             begin
-              Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
-                i tm_print itm.lookahead
-                action_print (Map.find (i,itm.lookahead) !actions)
-                action_print (Reduce itm.prod);
+              if Map.find (i,itm.lookahead) !actions <> Conflict then
+                Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
+                  i tm_print itm.lookahead
+                  action_print (Map.find (i,itm.lookahead) !actions)
+                  action_print (Reduce itm.prod);
               actions := Map.add (i,itm.lookahead) Conflict !actions
             end
             else begin
-              Util.dbg2 "Generated (%d, %a) -> Reduce [%d] %a\n"
+              Util.dbg "Generated (%d, %a) -> Reduce [%d] %a\n"
                 i tm_print itm.lookahead itm.prod
                 production_print cfg.productions.(itm.prod);
               actions := Map.add (i,itm.lookahead) (Reduce itm.prod) !actions;
