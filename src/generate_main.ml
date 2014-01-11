@@ -139,7 +139,7 @@ let haskell_cfg = {
          rhs = [ NT NTimport ]; };
 
        { lhs = NTimport;
-         rhs = [ NT NTvar ]; };
+         rhs = [ NT NTqvar ]; };
 
        { lhs = NTimport;
          rhs = [ T VarId; T LParen; T RDotDot; T RParen ]; };
@@ -250,7 +250,7 @@ let haskell_cfg = {
          rhs = [ NT NTfunlhs; NT NTrhs ]; };
 
        { lhs = NTcdecl;
-         rhs = [ NT NTvar; NT NTrhs ]; };
+         rhs = [ NT NTqvar; NT NTrhs ]; };
 
        { lhs = NTidecls;
          rhs = [ T LCurly; T RCurly ]; };
@@ -271,16 +271,16 @@ let haskell_cfg = {
          rhs = [ NT NTfunlhs; NT NTrhs ]; };
 
        { lhs = NTidecl;
-         rhs = [ NT NTvar; NT NTrhs ]; };
+         rhs = [ NT NTqvar; NT NTrhs ]; };
 
        { lhs = NTgendecl;
          rhs = []; };
 
        { lhs = NTgendecl;
-         rhs = [ NT NTvars; T RColonColon; NT NTcontext; T REqualsRArrow; NT NTtype ]; };
+         rhs = [ NT NTqvars; T RColonColon; NT NTcontext; T REqualsRArrow; NT NTtype ]; };
 
        { lhs = NTgendecl;
-         rhs = [ NT NTvars; T RColonColon; NT NTtype ]; };
+         rhs = [ NT NTqvars; T RColonColon; NT NTtype ]; };
 
        { lhs = NTgendecl;
          rhs = [ NT NTfixity; T IntLit; NT NTops ]; };
@@ -297,14 +297,14 @@ let haskell_cfg = {
        { lhs = NToplist;
          rhs = [ NT NTop ]; };
 
-       { lhs = NTvars;
-         rhs = [ NT NTvarlist ]; };
+       { lhs = NTqvars;
+         rhs = [ NT NTqvarlist ]; };
 
-       { lhs = NTvarlist;
-         rhs = [ NT NTvar; T Comma; NT NTvarlist ]; };
+       { lhs = NTqvarlist;
+         rhs = [ NT NTqvar; T Comma; NT NTqvarlist ]; };
 
-       { lhs = NTvarlist;
-         rhs = [ NT NTvar ]; };
+       { lhs = NTqvarlist;
+         rhs = [ NT NTqvar ]; };
 
        { lhs = NTfixity;
          rhs = [ T RInfixl ]; };
@@ -451,10 +451,10 @@ let haskell_cfg = {
          rhs = [ NT NTcon; NT NTatype ]; };
 
        { lhs = NTnewconstr;
-         rhs = [ NT NTcon; T LCurly; NT NTvar; T RColonColon; NT NTtype; T RCurly ]; };
+         rhs = [ NT NTcon; T LCurly; NT NTqvar; T RColonColon; NT NTtype; T RCurly ]; };
 
        { lhs = NTfielddecl;
-         rhs = [ NT NTvars; T RColonColon; NT NTtype ]; };
+         rhs = [ NT NTqvars; T RColonColon; NT NTtype ]; };
 
        { lhs = NTderiving;
          rhs = [ T RDeriving; NT NTdclass ]; };
@@ -499,10 +499,10 @@ let haskell_cfg = {
          rhs = [ T VarId ]; };
 
        { lhs = NTfunlhs;
-         rhs = [ NT NTvar; NT NTaexplist ]; };
+         rhs = [ NT NTqvar; NT NTaexplist ]; };
 
        { lhs = NTfunlhs;
-         rhs = [ NT NTinfixexp; NT NTvarop; NT NTinfixexp]; };
+         rhs = [ NT NTinfixexp; NT NTqvarop; NT NTinfixexp]; };
 
        { lhs = NTaexplist;
          rhs = [ NT NTaexp; NT NTaexplist ]; };
@@ -619,7 +619,7 @@ let haskell_cfg = {
          rhs = [ NT NTaexp; T LCurly; NT NTfbindlist; T RCurly ]; };
 
        { lhs = NTaexp;
-         rhs = [ NT NTvar; T RAt; NT NTaexp ]; };
+         rhs = [ NT NTqvar; T RAt; NT NTaexp ]; };
 
        { lhs = NTaexp;
          rhs = [ T RTilde; NT NTaexp ]; };
@@ -726,12 +726,6 @@ let haskell_cfg = {
        { lhs = NTgcon;
          rhs = [ NT NTqcon ]; };
 
-       { lhs = NTvar;
-         rhs = [ T VarId ]; };
-
-       { lhs = NTvar;
-         rhs = [ T LParen; T VarSym; T RParen ]; };
-
        { lhs = NTqvar;
          rhs = [ T QVarId ]; };
 
@@ -765,12 +759,6 @@ let haskell_cfg = {
        { lhs = NTqcon;
          rhs = [ T LParen; T ConSym; T RParen ]; };
 
-       { lhs = NTvarop;
-         rhs = [ T VarSym ]; };
-
-       { lhs = NTvarop;
-         rhs = [ T Backquote; T VarId; T Backquote ]; };
-
        { lhs = NTqvarop;
          rhs = [ T QVarSym ]; };
 
@@ -802,7 +790,7 @@ let haskell_cfg = {
          rhs = [ T Backquote; T ConId; T Backquote ]; };
 
        { lhs = NTop;
-         rhs = [ NT NTvarop ]; };
+         rhs = [ NT NTqvarop ]; };
 
        { lhs = NTop;
          rhs = [ NT NTconop ]; };

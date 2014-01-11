@@ -79,7 +79,7 @@ type nonterm =
   | NTidecl
   | NTgendecl
   | NTops
-  | NTvars
+  | NTqvars
   | NTfixity
   | NTtype
   | NTbtype
@@ -114,11 +114,9 @@ type nonterm =
   | NTstmt
   | NTfbind
   | NTgcon
-  | NTvar
   | NTqvar
   | NTcon
   | NTqcon
-  | NTvarop
   | NTqvarop
   | NTconop
   | NTqconop
@@ -144,10 +142,9 @@ type nonterm =
   | NTimpdecllist
   | NTexportlist
   | NTqcnamelist
-  | NTqvarlist
   | NTimportlist
   | NTtopdecllist
-  | NTvarlist
+  | NTqvarlist
   | NTtypelist
   | NTcommalist
   | NToplist
