@@ -204,8 +204,6 @@ type cc = {
   num_itemsets : int;
 }
 
-exception Parser_gen_error of string
-
 (* ---- Debug print functions ---- *)
 (* <type>_print prints <type> nicely for debugging purposes. Print function for
  * type <type> has type 'a BatIO.output -> <type> -> unit. *)
@@ -554,8 +552,13 @@ let build_tables cfg cc =
             (* Check for already filled (but distinct!) entry -> error *)
             if Map.mem (i,t) !actions &&
                 (Map.find (i,t) !actions <>
-                  (Shift (Map.find (i,(T t)) cc.gotos))) then
-              raise (Parser_gen_error "Grammar conflict")
+                  (Shift (Map.find (i,(T t)) cc.gotos))) then begin
+              Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
+                i tm_print t
+                action_print (Map.find (i,t) !actions)
+                action_print (Shift (Map.find (i,(T t)) cc.gotos));
+              actions := Map.add (i,t) Conflict !actions
+            end
             else begin
               Util.dbg2 "Generated (%d, %a) -> Shift %d\n"
                 i tm_print t (Map.find (i,(T t)) cc.gotos);
@@ -572,7 +575,13 @@ let build_tables cfg cc =
             (* Check for already filled (but distinct!) entry -> error *)
             if Map.mem (i,itm.lookahead) !actions &&
                 (Map.find (i,itm.lookahead) !actions <> (Accept itm.prod)) then
-              raise (Parser_gen_error "Grammar conflict")
+            begin
+              Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
+                i tm_print itm.lookahead
+                action_print (Map.find (i,itm.lookahead) !actions)
+                action_print (Accept itm.prod);
+              actions := Map.add (i,itm.lookahead) Conflict !actions
+            end
             else begin
               Util.dbg2 "Generated (%d, %a) -> Accept [%d] %a\n"
                 i tm_print itm.lookahead itm.prod
@@ -583,7 +592,13 @@ let build_tables cfg cc =
             (* Check for already filled (but distinct!) entry -> error *)
             if Map.mem (i,itm.lookahead) !actions &&
                 (Map.find (i,itm.lookahead) !actions <> (Reduce itm.prod)) then
-              raise (Parser_gen_error "Grammar conflict")
+            begin
+              Util.dbg2 "Grammar conflict at (%d,%a) between (%a) and (%a)\n"
+                i tm_print itm.lookahead
+                action_print (Map.find (i,itm.lookahead) !actions)
+                action_print (Reduce itm.prod);
+              actions := Map.add (i,itm.lookahead) Conflict !actions
+            end
             else begin
               Util.dbg2 "Generated (%d, %a) -> Reduce [%d] %a\n"
                 i tm_print itm.lookahead itm.prod
