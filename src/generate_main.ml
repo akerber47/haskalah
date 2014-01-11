@@ -82,31 +82,31 @@ let haskell_cfg = {
          rhs = [ NT NTqconid; T LParen; NT NTcnamelist; T RParen ]; };
 
        { lhs = NTexport;
-         rhs = [ T RModule; NT NTmodid ]; };
+         rhs = [ T RModule; T ConId ]; };
 
        { lhs = NTimpdecl;
-         rhs = [ T RImport; T VarId; NT NTmodid; T VarId; NT NTmodid; NT NTimpspec ]; };
+         rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId; NT NTimpspec ]; };
 
        { lhs = NTimpdecl;
-         rhs = [ T RImport; T VarId; NT NTmodid; T VarId; NT NTmodid ]; };
+         rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId ]; };
 
        { lhs = NTimpdecl;
-         rhs = [ T RImport; T VarId; NT NTmodid; NT NTimpspec ]; };
+         rhs = [ T RImport; T VarId; T ConId; NT NTimpspec ]; };
 
        { lhs = NTimpdecl;
-         rhs = [ T RImport; T VarId; NT NTmodid ]; };
+         rhs = [ T RImport; T VarId; T ConId ]; };
 
        { lhs = NTimpdecl;
-         rhs = [ T RImport; NT NTmodid; T VarId; NT NTmodid; NT NTimpspec ]; };
+         rhs = [ T RImport; T ConId; T VarId; T ConId; NT NTimpspec ]; };
 
        { lhs = NTimpdecl;
-         rhs = [ T RImport; NT NTmodid; T VarId; NT NTmodid ]; };
+         rhs = [ T RImport; T ConId; T VarId; T ConId ]; };
 
        { lhs = NTimpdecl;
-         rhs = [ T RImport; NT NTmodid; NT NTimpspec ]; };
+         rhs = [ T RImport; T ConId; NT NTimpspec ]; };
 
        { lhs = NTimpdecl;
-         rhs = [ T RImport; NT NTmodid ]; };
+         rhs = [ T RImport; T ConId ]; };
 
        { lhs = NTimpspec;
          rhs = [ T VarId; T LParen; T RParen ]; };
@@ -181,28 +181,28 @@ let haskell_cfg = {
          rhs = [ T RNewtype; NT NTsimpletype; T REquals; NT NTnewconstr ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RClass; NT NTscontext; T REqualsRArrow; NT NTtycls; NT NTtyvar; T RWhere; NT NTcdecls ]; };
+         rhs = [ T RClass; NT NTscontext; T REqualsRArrow; T ConId; T VarId; T RWhere; NT NTcdecls ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RClass; NT NTscontext; T REqualsRArrow; NT NTtycls; NT NTtyvar ]; };
+         rhs = [ T RClass; NT NTscontext; T REqualsRArrow; T ConId; T VarId ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RClass; NT NTtycls; NT NTtyvar; T RWhere; NT NTcdecls ]; };
+         rhs = [ T RClass; T ConId; T VarId; T RWhere; NT NTcdecls ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RClass; NT NTtycls; NT NTtyvar ]; };
+         rhs = [ T RClass; T ConId; T VarId ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqtycls; NT NTinst; T RWhere; NT NTidecls ]; };
+         rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqconid; NT NTinst; T RWhere; NT NTidecls ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqtycls; NT NTinst ]; };
+         rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqconid; NT NTinst ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RInstance; NT NTqtycls; NT NTinst; T RWhere; NT NTidecls ]; };
+         rhs = [ T RInstance; NT NTqconid; NT NTinst; T RWhere; NT NTidecls ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RInstance; NT NTqtycls; NT NTinst ]; };
+         rhs = [ T RInstance; NT NTqconid; NT NTinst ]; };
 
        { lhs = NTtopdecl;
          rhs = [ T RDefault; T LParen; T RParen ]; };
@@ -230,9 +230,6 @@ let haskell_cfg = {
 
        { lhs = NTdecl;
          rhs = [ NT NTfunlhs; NT NTrhs ]; };
-
-       { lhs = NTdecl;
-         rhs = [ NT NTinfixpat; NT NTrhs ]; };
 
        { lhs = NTcdecls;
          rhs = [ T LCurly; T RCurly ]; };
@@ -334,7 +331,7 @@ let haskell_cfg = {
          rhs = [ NT NTgtycon ]; };
 
        { lhs = NTatype;
-         rhs = [ NT NTtyvar ]; };
+         rhs = [ T VarId ]; };
 
        { lhs = NTatype;
          rhs = [ T LParen; NT NTtype; T Comma; NT NTtypelist; T RParen ]; };
@@ -346,7 +343,7 @@ let haskell_cfg = {
          rhs = [ T LParen; NT NTtype; T RParen ]; };
 
        { lhs = NTgtycon;
-         rhs = [ NT NTqtycon ]; };
+         rhs = [ NT NTqconid ]; };
 
        { lhs = NTgtycon;
          rhs = [ T LParen; T RParen ]; };
@@ -382,10 +379,10 @@ let haskell_cfg = {
          rhs = [ NT NTclass ]; };
 
        { lhs = NTclass;
-         rhs = [ NT NTqtycls; NT NTtyvar ]; };
+         rhs = [ NT NTqconid; T VarId ]; };
 
        { lhs = NTclass;
-         rhs = [ NT NTqtycls; T LParen; NT NTtyvar; NT NTatypelist; T RParen ]; };
+         rhs = [ NT NTqconid; T LParen; T VarId; NT NTatypelist; T RParen ]; };
 
        { lhs = NTatypelist;
          rhs = [ NT NTatype; NT NTatypelist ]; };
@@ -409,19 +406,19 @@ let haskell_cfg = {
          rhs = [ NT NTsimpleclass ]; };
 
        { lhs = NTsimpleclass;
-         rhs = [ NT NTqtycls; NT NTtyvar ]; };
+         rhs = [ NT NTqconid; T VarId ]; };
 
        { lhs = NTsimpletype;
-         rhs = [ NT NTtycon ]; };
+         rhs = [ T ConId ]; };
 
        { lhs = NTsimpletype;
-         rhs = [ NT NTtycon; NT NTtyvarlist ]; };
+         rhs = [ T ConId; NT NTtyvarlist ]; };
 
        { lhs = NTtyvarlist;
-         rhs = [ NT NTtyvar; NT NTtyvarlist ]; };
+         rhs = [ T VarId; NT NTtyvarlist ]; };
 
        { lhs = NTtyvarlist;
-         rhs = [ NT NTtyvar ]; };
+         rhs = [ T VarId ]; };
 
        { lhs = NTconstrs;
          rhs = [ NT NTconstrlist ]; };
@@ -475,7 +472,7 @@ let haskell_cfg = {
          rhs = [ NT NTdclass ]; };
 
        { lhs = NTdclass;
-         rhs = [ NT NTqtycls ]; };
+         rhs = [ NT NTqconid ]; };
 
        { lhs = NTinst;
          rhs = [ NT NTgtycon ]; };
@@ -487,19 +484,19 @@ let haskell_cfg = {
          rhs = [ T LParen; NT NTgtycon; NT NTtyvarlist; T RParen ]; };
 
        { lhs = NTinst;
-         rhs = [ T LParen; NT NTtyvar; T Comma; NT NTtyvarcommalist; T RParen ]; };
+         rhs = [ T LParen; T VarId; T Comma; NT NTtyvarcommalist; T RParen ]; };
 
        { lhs = NTinst;
-         rhs = [ T LSquare; NT NTtyvar; T RSquare ]; };
+         rhs = [ T LSquare; T VarId; T RSquare ]; };
 
        { lhs = NTinst;
-         rhs = [ T LParen; NT NTtyvar; T RDashRArrow; NT NTtyvar; T RParen ]; };
+         rhs = [ T LParen; T VarId; T RDashRArrow; T VarId; T RParen ]; };
 
        { lhs = NTtyvarcommalist;
-         rhs = [ NT NTtyvar; T Comma; NT NTtyvarcommalist ]; };
+         rhs = [ T VarId; T Comma; NT NTtyvarcommalist ]; };
 
        { lhs = NTtyvarcommalist;
-         rhs = [ NT NTtyvar ]; };
+         rhs = [ T VarId ]; };
 
        { lhs = NTfunlhs;
          rhs = [ NT NTvar; NT NTapatlist ]; };
