@@ -503,7 +503,7 @@ let haskell_cfg = {
          rhs = [ NT NTgd; T REquals; NT NTexp ]; };
 
        { lhs = NTgd;
-         rhs = [ NT NTinfixexp ]; };
+         rhs = [ T RPipe; NT NTinfixexp ]; };
 
        { lhs = NTexp;
          rhs = [ NT NTinfixexp; T RColonColon; NT NTtype ]; };

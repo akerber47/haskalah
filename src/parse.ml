@@ -844,7 +844,7 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
        { lhs = NTgd;
-         rhs = [ NT NTinfixexp ];
+         rhs = [ T RPipe; NT NTinfixexp ];
          semantic_action =
            (fun _ -> 0);
        };
