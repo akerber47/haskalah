@@ -476,9 +476,6 @@ let postlex src prelexemes =
   end
   in begin
     Queue.iter do_nextplx prelexemes;
-    (* Add EOF token to keep the parser happy. *)
-    Queue.add { token = EOF; Types.contents = ""; startraw = -1;
-                endraw = -1 } lexemes;
     lexemes
   end
 ;;
@@ -565,7 +562,8 @@ let unlayout src_string lexemes_orig =
     (* Loop through input queue, passing along layout context. Straight-up
      * implementation of patterns for transformation L. *)
     in
-    let rec loop layout_ctx =
+    let rec loop layout_ctx = begin
+      Util.dbg2 "Looped on context %a\n" print_guess layout_ctx;
       if Queue.is_empty inter_lxs then
         match layout_ctx with
         | [] -> ()
@@ -639,13 +637,15 @@ let unlayout src_string lexemes_orig =
               Queue.add lx final_lexemes;
               loop ms
             end
+    end
     (* Stupid helper function, to deal with some messy recursion (for when the
-     * same IndentLine ends multiple layout contexts. *)
+     * same IndentLine or bare block ends multiple layout contexts. *)
     and do_indentline n mss =
+      (* Indent level stays the same, current block continues. *)
       match mss with
-      | m::ms when n = m -> begin
+      | m::_ when n = m -> begin
         add_implicit_semi ();
-        loop ms
+        loop mss
       end
       (* Indent level decreases, end of layout block. Loop back on same token
        * in case multiple layout blocks end here. *)
@@ -657,8 +657,11 @@ let unlayout src_string lexemes_orig =
        * this is line continuation, just keep going. Note that since this can
        * appear inside recursive call to do_indent, we can in fact have a
        * continuation that contains a block in it (YUCK!) *)
-      | ms -> loop ms
+      | _ -> loop mss
     in loop [];
+    (* Add EOF token to keep the parser happy. *)
+    Queue.add { token = EOF; Types.contents = ""; startraw = -1;
+                endraw = -1 } final_lexemes;
     final_lexemes
   end
 ;;
