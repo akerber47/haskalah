@@ -469,6 +469,6 @@ and ast0node =
 exception Lex_error of int * string
 ;;
 
-(* Parse error: lexeme where it occurred, and error message *)
-exception Parse_error of lexeme * string
+(* Parse error: error message *)
+exception Parse_error of string
 ;;

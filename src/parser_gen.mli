@@ -111,7 +111,7 @@ type aug_grammar = {
  * lexemes, building an AST. The input functions are presumably obtained by
  * running Pg.output_tables, though they could always be written by hand. *)
 val simulate : aug_grammar -> (state * term -> action) ->
-  (state * nonterm -> state) -> lexeme Queue.t -> ast
+  (state * nonterm -> state) -> (lexeme -> ast) -> lexeme Queue.t -> ast
 
 end;;
 

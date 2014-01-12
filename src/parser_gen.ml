@@ -103,7 +103,7 @@ type aug_grammar = {
  * lexemes, building an AST. The input functions are presumably obtained by
  * running Pg.output_tables, though they could always be written by hand. *)
 val simulate : aug_grammar -> (state * term -> action) ->
-  (state * nonterm -> state) -> lexeme Queue.t -> ast
+  (state * nonterm -> state) -> (lexeme -> ast) -> lexeme Queue.t -> ast
 
 end;;
 
@@ -646,8 +646,9 @@ type aug_grammar = {
   terminal_action : (lexeme -> ast);
 }
 
-let simulate acfg do_action do_goto lexemes =
-  Util.dbg "Starting simulation\n";
+let simulate acfg do_action do_goto do_fail lexemes =
+  Util.dbg "Starting simulation of lexeme queue %a\n"
+    (Queue.print ~first:"\n[ " ~sep:"\n  " ~last:" ]\n" lx_print) lexemes;
   (* Don't modify input queue *)
   let temp_lexemes = Queue.copy lexemes in
   (* Pass along stack of states, stack of ASTs. Represent each stack with a
@@ -667,6 +668,7 @@ let simulate acfg do_action do_goto lexemes =
         match states with
         | [] -> assert false (* Popped too much *)
         | s::sts ->
+            try
               match do_action (s, Psa.lx_to_tm nextlx) with
               | (Shift nexts) -> begin
                 Util.dbg "Action: Shift %d\n" nexts;
@@ -708,6 +710,9 @@ let simulate acfg do_action do_goto lexemes =
                      * the remaining ASTs *)
                     prd.semantic_action (List.rev asts)
                   end
+            with
+            | (Failure _) -> (* do_fail nextlx *) raise (Parse_error
+                (Printf.sprintf2 "Syntax error at %a" lx_print nextlx))
       end
   (* Start in state 0 *)
   in do_nextstate [0] []
