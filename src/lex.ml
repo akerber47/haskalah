@@ -490,7 +490,7 @@ let unlayout src_string lexemes_orig =
   and final_lexemes = Queue.create ()
   and lastln = ref 0
   in begin
-    Util.dbg2 "Adding implicit layout tokens for lexeme queue %a\n"
+    Util.dbg "Adding implicit layout tokens for lexeme queue %a\n"
       (Queue.print ~first:"\n[ " ~last:" ]\n" ~sep:"\n  " Print.lexeme_print)
       lexemes_orig;
     (* Rule #2: Add IndentBlock at start of file *)
@@ -533,7 +533,7 @@ let unlayout src_string lexemes_orig =
           inter_lxs;
       Queue.add (SomeLexeme lx) inter_lxs
     done;
-    Util.dbg2 "Input to transformation L: %a\n"
+    Util.dbg "Input to transformation L: %a\n"
       (Queue.print ~first:"\n[ " ~last:" ]\n" ~sep:"\n  "
         (fun o ilx ->
           match ilx with
@@ -563,7 +563,7 @@ let unlayout src_string lexemes_orig =
      * implementation of patterns for transformation L. *)
     in
     let rec loop layout_ctx = begin
-      Util.dbg2 "Looped on context %a\n" print_guess layout_ctx;
+      Util.dbg "Looped on context %a\n" print_guess layout_ctx;
       if Queue.is_empty inter_lxs then
         match layout_ctx with
         | [] -> ()

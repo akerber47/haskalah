@@ -214,6 +214,12 @@ let haskell_cfg = {
        { lhs = NTtopdecl;
          rhs = [ NT NTdecl ]; };
 
+       { lhs = NTtypelist;
+         rhs = [ NT NTtype; T Comma; NT NTtypelist ]; };
+
+       { lhs = NTtypelist;
+         rhs = [ NT NTtype ]; };
+
        { lhs = NTdecls;
          rhs = [ T LCurly; T RCurly ]; };
 

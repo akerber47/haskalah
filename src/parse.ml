@@ -363,6 +363,16 @@ let haskell_acfg = {
          semantic_action =
            (fun _ -> 0);
        };
+       { lhs = NTtypelist;
+         rhs = [ NT NTtype; T Comma; NT NTtypelist ];
+         semantic_action =
+           (fun _ -> 0);
+       };
+       { lhs = NTtypelist;
+         rhs = [ NT NTtype ];
+         semantic_action =
+           (fun _ -> 0);
+       };
        { lhs = NTdecls;
          rhs = [ T LCurly; T RCurly ];
          semantic_action =
