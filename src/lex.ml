@@ -493,12 +493,21 @@ let unlayout src_string lexemes_orig =
   and final_lexemes = Queue.create ()
   and lastln = ref 0
   in begin
+    Util.dbg2 "Adding implicit layout tokens for lexeme queue %a\n"
+      (Queue.print ~first:"\n[ " ~last:" ]\n" ~sep:"\n  " Print.lexeme_print)
+      lexemes_orig;
     (* Rule #2: Add IndentBlock at start of file *)
     if (not (Queue.is_empty lexemes)) &&
        (Queue.peek lexemes).token <> LCurly &&
-       (Queue.peek lexemes).token <> RModule then
+       (Queue.peek lexemes).token <> RModule then begin
       Queue.add (IndentBlock (compute_indent src_string
         (Queue.peek lexemes).startraw)) inter_lxs;
+      (* Process first lexeme immediately for special case of Rule #3 *)
+      let firstlx = Queue.take lexemes in
+      lastln := fst (compute_line_and_col src_string firstlx.startraw);
+      Queue.add (SomeLexeme firstlx) inter_lxs
+    end;
+    (* Walk through the remaining lexemes, applying rules #1 and #3 *)
     while not (Queue.is_empty lexemes) do
       let lx = Queue.take lexemes in
       match lx.token with
@@ -527,6 +536,14 @@ let unlayout src_string lexemes_orig =
           inter_lxs;
       Queue.add (SomeLexeme lx) inter_lxs
     done;
+    Util.dbg2 "Input to transformation L: %a\n"
+      (Queue.print ~first:"\n[ " ~last:" ]\n" ~sep:"\n  "
+        (fun o ilx ->
+          match ilx with
+          | IndentBlock n -> Printf.fprintf o "IndentBlock %d" n
+          | IndentLine n -> Printf.fprintf o "IndentLine %d" n
+          | SomeLexeme lx -> Print.lexeme_print o lx))
+      inter_lxs;
     (* inter_lxs contains input to translation L (in Report sec 9.3). Now apply
      * translation L, yielding final queue to return. *)
     (* Helper functions *)
