@@ -18,6 +18,7 @@ module Haskell_pg = Parser_gen.Make_gen (
 open Haskell_pg
 ;;
 
+(* This is just the acfg from Parse. Look there for explanatory comments. *)
 let haskell_cfg = {
   goal = Goal;
   productions =
