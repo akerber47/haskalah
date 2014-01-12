@@ -118,7 +118,6 @@ type nonterm =
   | NTqconop
   | NTop
   | NTqop
-  | NTgconsym
   (* Above are all the non-terminals listed in the printed grammar. To actually
    * implement this grammar without wildcards in our BNF syntax, we need a few
    * more. Each bunch below listed in order of appearance on the right-hand

@@ -131,7 +131,6 @@ let nonterm_print o nt =
     | NTqconop -> "NTqconop"
     | NTop -> "NTop"
     | NTqop -> "NTqop"
-    | NTgconsym -> "NTgconsym"
     | NTimpdecllist -> "NTimpdecllist"
     | NTexportlist -> "NTexportlist"
     | NTqcnamelist -> "NTqcnamelist"

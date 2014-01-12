@@ -1244,6 +1244,11 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
        { lhs = NTqconop;
+         rhs = [ T RColon ];
+         semantic_action =
+           (fun _ -> 0);
+       };
+       { lhs = NTqconop;
          rhs = [ T QConSym ];
          semantic_action =
            (fun _ -> 0);
@@ -1280,16 +1285,6 @@ let haskell_acfg = {
        };
        { lhs = NTqop;
          rhs = [ NT NTqconop ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTgconsym;
-         rhs = [ T RColon ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTgconsym;
-         rhs = [ T QConSym ];
          semantic_action =
            (fun _ -> 0);
        };

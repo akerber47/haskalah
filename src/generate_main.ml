@@ -743,6 +743,9 @@ let haskell_cfg = {
          rhs = [ T Backquote; T ConId; T Backquote ]; };
 
        { lhs = NTqconop;
+         rhs = [ T RColon ]; };
+
+       { lhs = NTqconop;
          rhs = [ T QConSym ]; };
 
        { lhs = NTqconop;
@@ -765,12 +768,6 @@ let haskell_cfg = {
 
        { lhs = NTqop;
          rhs = [ NT NTqconop ]; };
-
-       { lhs = NTgconsym;
-         rhs = [ T RColon ]; };
-
-       { lhs = NTgconsym;
-         rhs = [ T QConSym ]; };
 
        { lhs = NTqvarid;
          rhs = [ T QVarId ]; };
