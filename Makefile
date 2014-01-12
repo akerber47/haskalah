@@ -2,7 +2,7 @@ TARGETS = haskalah-test haskalah-test.byte haskalah haskalah.byte
 OCAML_TARGETS = src/main.native test/test_main.native
 OCAML.byte_TARGETS = src/main.byte test/test_main.byte
 OCAMLBUILD_FLAGS = -use-ocamlfind -classic-display -no-links
-OCAMLBUILD_FLAGS += -Is src,test -cflags -strict-sequence,'-w +a-4-44',-g
+OCAMLBUILD_FLAGS += -Is src,test -cflags -strict-sequence,'-w +a-4-29-44',-g
 OCAMLBUILD_FLAGS += -lflag -g
 OCAMLBUILD_FLAGS += -tags 'package(batteries)','package(oUnit)'
 
