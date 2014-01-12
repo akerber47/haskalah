@@ -62221,7 +62221,7 @@ let computed_do_action (s,t) =
     failwith "Syntax error"
 ;;
 
-let computed_goto_action (s,nt) = begin
+let computed_do_goto (s,nt) = begin
   (* Goto should never fail, this means parser generator screwed up tables *)
   assert (Map.mem (s,nt) computed_goto_map);
   Map.find (s,nt) computed_goto_map
