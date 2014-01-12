@@ -35,22 +35,7 @@ let haskell_cfg = {
          rhs = [ NT NTbody ]; };
 
        { lhs = NTbody;
-         rhs = [ T LCurly; NT NTimpdecls; T Semicolon; NT NTtopdecls; T RCurly ]; };
-
-       { lhs = NTbody;
-         rhs = [ T LCurly; NT NTimpdecls; T RCurly ]; };
-
-       { lhs = NTbody;
          rhs = [ T LCurly; NT NTtopdecls; T RCurly ]; };
-
-       { lhs = NTimpdecls;
-         rhs = [ NT NTimpdecllist ]; };
-
-       { lhs = NTimpdecllist;
-         rhs = [ NT NTimpdecl; T Semicolon; NT NTimpdecllist ]; };
-
-       { lhs = NTimpdecllist;
-         rhs = [ NT NTimpdecl ]; };
 
        { lhs = NTexports;
          rhs = [ T LParen; T RParen ]; };
@@ -85,28 +70,28 @@ let haskell_cfg = {
        { lhs = NTexport;
          rhs = [ T RModule; T ConId ]; };
 
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId; NT NTimpspec ]; };
 
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId ]; };
 
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; NT NTimpspec ]; };
 
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId ]; };
 
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; T VarId; T ConId; NT NTimpspec ]; };
 
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; T VarId; T ConId ]; };
 
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; NT NTimpspec ]; };
 
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId ]; };
 
        { lhs = NTimpspec;

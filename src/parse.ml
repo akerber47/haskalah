@@ -64,32 +64,7 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
        { lhs = NTbody;
-         rhs = [ T LCurly; NT NTimpdecls; T Semicolon; NT NTtopdecls; T RCurly ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTbody;
-         rhs = [ T LCurly; NT NTimpdecls; T RCurly ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTbody;
          rhs = [ T LCurly; NT NTtopdecls; T RCurly ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTimpdecls;
-         rhs = [ NT NTimpdecllist ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTimpdecllist;
-         rhs = [ NT NTimpdecl; T Semicolon; NT NTimpdecllist ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTimpdecllist;
-         rhs = [ NT NTimpdecl ];
          semantic_action =
            (fun _ -> 0);
        };
@@ -148,42 +123,42 @@ let haskell_acfg = {
          semantic_action =
            (fun _ -> 0);
        };
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId; NT NTimpspec ];
          semantic_action =
            (fun _ -> 0);
        };
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId ];
          semantic_action =
            (fun _ -> 0);
        };
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; NT NTimpspec ];
          semantic_action =
            (fun _ -> 0);
        };
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId ];
          semantic_action =
            (fun _ -> 0);
        };
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; T VarId; T ConId; NT NTimpspec ];
          semantic_action =
            (fun _ -> 0);
        };
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; T VarId; T ConId ];
          semantic_action =
            (fun _ -> 0);
        };
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; NT NTimpspec ];
          semantic_action =
            (fun _ -> 0);
        };
-       { lhs = NTimpdecl;
+       { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId ];
          semantic_action =
            (fun _ -> 0);

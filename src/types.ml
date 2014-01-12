@@ -62,10 +62,8 @@ type nonterm =
   | Goal
   | NTmodule
   | NTbody
-  | NTimpdecls
   | NTexports
   | NTexport
-  | NTimpdecl
   | NTimpspec
   | NTimport
   | NTqcname
@@ -134,7 +132,6 @@ type nonterm =
    * wildcards, optional things, etc in the BNF grammar by hand. Each
    * <stuff>list represents a list of AT LEAST ONE <stuff>. *)
   (* Comma-separated *)
-  | NTimpdecllist
   | NTexportlist
   | NTqcnamelist
   | NTimportlist
