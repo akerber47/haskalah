@@ -469,11 +469,6 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
        { lhs = NTgendecl;
-         rhs = [ NT NTqvars; T RColonColon; NT NTcontext; T REqualsRArrow; NT NTtype ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTgendecl;
          rhs = [ NT NTqvars; T RColonColon; NT NTtype ];
          semantic_action =
            (fun _ -> 0);
@@ -534,7 +529,12 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
        { lhs = NTtype;
-         rhs = [ NT NTbtype; T RDashRArrow; NT NTatype ];
+         rhs = [ NT NTbtype; T RDashRArrow; NT NTtype ];
+         semantic_action =
+           (fun _ -> 0);
+       };
+       { lhs = NTtype;
+         rhs = [ NT NTbtype; T REqualsRArrow; NT NTtype ];
          semantic_action =
            (fun _ -> 0);
        };
@@ -610,51 +610,6 @@ let haskell_acfg = {
        };
        { lhs = NTcommalist;
          rhs = [ T Comma ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTcontext;
-         rhs = [ NT NTclass ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTcontext;
-         rhs = [ T LParen; T RParen ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTcontext;
-         rhs = [ T LParen; NT NTclasslist; T RParen ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTclasslist;
-         rhs = [ NT NTclass; T Comma; NT NTclasslist ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTclasslist;
-         rhs = [ NT NTclass ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTclass;
-         rhs = [ NT NTqconid; T VarId ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTclass;
-         rhs = [ NT NTqconid; T LParen; T VarId; NT NTatypelist; T RParen ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTatypelist;
-         rhs = [ NT NTatype; NT NTatypelist ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTatypelist;
-         rhs = [ NT NTatype ];
          semantic_action =
            (fun _ -> 0);
        };
@@ -880,11 +835,6 @@ let haskell_acfg = {
        };
        { lhs = NTgd;
          rhs = [ NT NTinfixexp ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTexp;
-         rhs = [ NT NTinfixexp; T RColonColon; NT NTcontext; T REqualsRArrow; NT NTtype ];
          semantic_action =
            (fun _ -> 0);
        };
