@@ -141,10 +141,6 @@ type lex_state =
   | InFloatExp of int (* Inside a float literal, and have eaten the e|E. *)
 ;;
 
-(* Lex error: index in input string where it occurred, and error message. *)
-exception Lex_error of int * string
-;;
-
 let prelex src_string =
   let prelexemes = Queue.create ()
   and src_chars = String.to_list src_string in

@@ -464,3 +464,11 @@ and ast0node =
    * Basically this is a trick to cut down on how many AST nodes we need. *)
   | `Partial_list of ast0 list
   ]
+
+(* Lex error: index in input string where it occurred, and error message. *)
+exception Lex_error of int * string
+;;
+
+(* Parse error: lexeme where it occurred, and error message *)
+exception Parse_error of lexeme * string
+;;
