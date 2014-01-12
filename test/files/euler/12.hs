@@ -1,4 +1,4 @@
-import Data.List
+import List
 
 -- Same factorization algorithm as from #3
 -- Kind of stupid to use it here as it's totally stateless and will sieve
