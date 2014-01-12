@@ -85,7 +85,6 @@ type nonterm =
   | NTbtype
   | NTatype
   | NTgtycon
-  | NTclass
   | NTscontext
   | NTsimpleclass
   | NTsimpletype
@@ -145,7 +144,6 @@ type nonterm =
   | NTtypelist
   | NTcommalist
   | NToplist
-  | NTclasslist
   | NTsimpleclasslist
   | NTfielddecllist
   | NTdclasslist
@@ -161,7 +159,6 @@ type nonterm =
   (* Pipe separated *)
   | NTconstrlist
   (* Whitespace (nothing) separated *)
-  | NTatypelist
   | NTtyvarlist
   | NTaexplist
   | NTstmtlist

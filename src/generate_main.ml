@@ -364,24 +364,6 @@ let haskell_cfg = {
        { lhs = NTcommalist;
          rhs = [ T Comma ]; };
 
-       { lhs = NTclasslist;
-         rhs = [ NT NTclass; T Comma; NT NTclasslist ]; };
-
-       { lhs = NTclasslist;
-         rhs = [ NT NTclass ]; };
-
-       { lhs = NTclass;
-         rhs = [ NT NTqconid; T VarId ]; };
-
-       { lhs = NTclass;
-         rhs = [ NT NTqconid; T LParen; T VarId; NT NTatypelist; T RParen ]; };
-
-       { lhs = NTatypelist;
-         rhs = [ NT NTatype; NT NTatypelist ]; };
-
-       { lhs = NTatypelist;
-         rhs = [ NT NTatype ]; };
-
        { lhs = NTscontext;
          rhs = [ NT NTsimpleclass ]; };
 
