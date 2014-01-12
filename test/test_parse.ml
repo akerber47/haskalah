@@ -27,7 +27,6 @@ let make_test_list name lst =
 let parse_file_tests = make_test_list "lex_and_parse_files" [
   (lex_and_parse, "test/files/simple/hello.hs");
   (lex_and_parse, "test/files/simple/fib.hs");
-  (*
   (lex_and_parse, "test/files/simple/fac.hs");
   (lex_and_parse, "test/files/euler/1.hs");
   (lex_and_parse, "test/files/euler/2.hs");
@@ -40,7 +39,6 @@ let parse_file_tests = make_test_list "lex_and_parse_files" [
   (lex_and_parse, "test/files/euler/10.hs");
   (lex_and_parse, "test/files/euler/12.hs");
   (lex_and_parse, "test/files/euler/13.hs");
-  *)
 ]
 ;;
 
