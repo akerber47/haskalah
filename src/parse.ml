@@ -34,12 +34,15 @@ open Haskell_parser_sim
  * characters is a stupid idea and makes parsing awful.
  * As implemented in Parser_gen, we resolve shift-reduce conflicts by shifting
  * (so lambda, let, if, etc. extend as far to the right as possible).
+ * The empty program (no tokens) does not compile.
  * To eliminate reduce-reduce conflicts:
  * * patterns parsed as expressions
  * * function / pattern left-hand sides of expressions parsed as general
  *     expressions (no distinguished variable / op)
  * * vars parsed as qvars
- * * import/export decls do not distinguish classes from data constructors *)
+ * * import/export decls do not distinguish classes from data constructors
+ * * contexts parsed as types
+ * * import decls parsed as top-level decls *)
 let haskell_acfg = {
   goal = Goal;
   productions =
