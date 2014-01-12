@@ -65,7 +65,7 @@ let token_print o t =
 ;;
 
 let lexeme_print o l =
-  Printf.fprintf o "(%a \"%s\" src[%d:%d])"
+  Printf.fprintf o "(%a %s [%d-%d])"
     token_print l.token l.Types.contents l.startraw l.endraw
 ;;
 

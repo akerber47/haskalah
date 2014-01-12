@@ -1,4 +1,3 @@
-open Batteries
 open Types
 
 (** For debugging and self-modifying code purposes. *)
