@@ -278,9 +278,6 @@ let haskell_cfg = {
          rhs = []; };
 
        { lhs = NTgendecl;
-         rhs = [ NT NTqvars; T RColonColon; NT NTcontext; T REqualsRArrow; NT NTtype ]; };
-
-       { lhs = NTgendecl;
          rhs = [ NT NTqvars; T RColonColon; NT NTtype ]; };
 
        { lhs = NTgendecl;
@@ -317,7 +314,10 @@ let haskell_cfg = {
          rhs = [ T RInfix ]; };
 
        { lhs = NTtype;
-         rhs = [ NT NTbtype; T RDashRArrow; NT NTatype ]; };
+         rhs = [ NT NTbtype; T RDashRArrow; NT NTtype ]; };
+
+       { lhs = NTtype;
+         rhs = [ NT NTbtype; T REqualsRArrow; NT NTtype ]; };
 
        { lhs = NTtype;
          rhs = [ NT NTbtype ]; };
@@ -363,15 +363,6 @@ let haskell_cfg = {
 
        { lhs = NTcommalist;
          rhs = [ T Comma ]; };
-
-       { lhs = NTcontext;
-         rhs = [ NT NTclass ]; };
-
-       { lhs = NTcontext;
-         rhs = [ T LParen; T RParen ]; };
-
-       { lhs = NTcontext;
-         rhs = [ T LParen; NT NTclasslist; T RParen ]; };
 
        { lhs = NTclasslist;
          rhs = [ NT NTclass; T Comma; NT NTclasslist ]; };
@@ -525,9 +516,6 @@ let haskell_cfg = {
 
        { lhs = NTgd;
          rhs = [ NT NTinfixexp ]; };
-
-       { lhs = NTexp;
-         rhs = [ NT NTinfixexp; T RColonColon; NT NTcontext; T REqualsRArrow; NT NTtype ]; };
 
        { lhs = NTexp;
          rhs = [ NT NTinfixexp; T RColonColon; NT NTtype ]; };

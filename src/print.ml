@@ -98,7 +98,6 @@ let nonterm_print o nt =
     | NTbtype -> "NTbtype"
     | NTatype -> "NTatype"
     | NTgtycon -> "NTgtycon"
-    | NTcontext -> "NTcontext"
     | NTclass -> "NTclass"
     | NTscontext -> "NTscontext"
     | NTsimpleclass -> "NTsimpleclass"

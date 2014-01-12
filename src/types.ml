@@ -85,7 +85,6 @@ type nonterm =
   | NTbtype
   | NTatype
   | NTgtycon
-  | NTcontext
   | NTclass
   | NTscontext
   | NTsimpleclass
