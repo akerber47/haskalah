@@ -167,25 +167,25 @@ let haskell_cfg = {
          rhs = [ T RNewtype; NT NTsimpletype; T REquals; NT NTnewconstr ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RClass; NT NTscontext; T REqualsRArrow; T ConId; T VarId; T RWhere; NT NTcdecls ]; };
+         rhs = [ T RClass; NT NTscontext; T REqualsRArrow; T ConId; T VarId; T RWhere; NT NTdecls ]; };
 
        { lhs = NTtopdecl;
          rhs = [ T RClass; NT NTscontext; T REqualsRArrow; T ConId; T VarId ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RClass; T ConId; T VarId; T RWhere; NT NTcdecls ]; };
+         rhs = [ T RClass; T ConId; T VarId; T RWhere; NT NTdecls ]; };
 
        { lhs = NTtopdecl;
          rhs = [ T RClass; T ConId; T VarId ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqconid; NT NTinst; T RWhere; NT NTidecls ]; };
+         rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqconid; NT NTinst; T RWhere; NT NTdecls ]; };
 
        { lhs = NTtopdecl;
          rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqconid; NT NTinst ]; };
 
        { lhs = NTtopdecl;
-         rhs = [ T RInstance; NT NTqconid; NT NTinst; T RWhere; NT NTidecls ]; };
+         rhs = [ T RInstance; NT NTqconid; NT NTinst; T RWhere; NT NTdecls ]; };
 
        { lhs = NTtopdecl;
          rhs = [ T RInstance; NT NTqconid; NT NTinst ]; };
@@ -222,48 +222,6 @@ let haskell_cfg = {
 
        { lhs = NTdecl;
          rhs = [ NT NTinfixexp; NT NTrhs ]; };
-
-       { lhs = NTcdecls;
-         rhs = [ T LCurly; T RCurly ]; };
-
-       { lhs = NTcdecls;
-         rhs = [ T LCurly; NT NTcdecllist; T RCurly ]; };
-
-       { lhs = NTcdecllist;
-         rhs = [ NT NTcdecl; T Semicolon; NT NTcdecllist ]; };
-
-       { lhs = NTcdecllist;
-         rhs = [ NT NTcdecl ]; };
-
-       { lhs = NTcdecl;
-         rhs = [ NT NTgendecl ]; };
-
-       { lhs = NTcdecl;
-         rhs = [ NT NTinfixexp; NT NTrhs ]; };
-
-       { lhs = NTcdecl;
-         rhs = [ NT NTqvar; NT NTrhs ]; };
-
-       { lhs = NTidecls;
-         rhs = [ T LCurly; T RCurly ]; };
-
-       { lhs = NTidecls;
-         rhs = [ T LCurly; NT NTidecllist; T RCurly ]; };
-
-       { lhs = NTidecllist;
-         rhs = [ NT NTidecl; T Semicolon; NT NTidecllist ]; };
-
-       { lhs = NTidecllist;
-         rhs = [ NT NTidecl ]; };
-
-       { lhs = NTidecl;
-         rhs = []; };
-
-       { lhs = NTidecl;
-         rhs = [ NT NTinfixexp; NT NTrhs ]; };
-
-       { lhs = NTidecl;
-         rhs = [ NT NTqvar; NT NTrhs ]; };
 
        { lhs = NTgendecl;
          rhs = []; };

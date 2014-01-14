@@ -71,10 +71,6 @@ type nonterm =
   | NTtopdecl
   | NTdecls
   | NTdecl
-  | NTcdecls
-  | NTcdecl
-  | NTidecls
-  | NTidecl
   | NTgendecl
   | NTops
   | NTqvars
@@ -149,8 +145,6 @@ type nonterm =
   | NTtyvarcommalist
   (* Semicolon-separated *)
   | NTdecllist
-  | NTcdecllist
-  | NTidecllist
   | NTaltlist
   (* Pipe separated *)
   | NTconstrlist
@@ -194,40 +188,34 @@ type ast0 = {
 and ast0node =
   (* Comment above each AST node says what sort of children it *should* have.
    * No type system guarantees. *)
+  (* Note that ALL nonterminals that can at most have a single child ast (eg
+   * qop) will be "condensed" into that child (so semantic action just passes
+   * it along) *)
   (* modid [export*] body *)
   [ `Module of ast0 * (ast0 list) option * ast0
-  (* impdecl* topdecl* *)
-  | `Body of (ast0 list) * (ast0 list)
+  (* topdecl* *)
+  | `Body of (ast0 list)
   (* qvar *)
   | `Export_var of ast0
-  (* qtycon [cname*] *)
+  (* qconid [qcname*] *)
   | `Export_type of ast0 * (ast0 list) option
-  (* qtycls [qvar*] *)
-  | `Export_class of ast0 * (ast0 list) option
   (* modid *)
   | `Export_module of ast0
-  (* qualified? modid [modid] hiding? import* *)
-  | `Impdecl of bool * ast0 * (ast0 option) * bool * (ast0 list)
-  (* var *)
+  (* qualified? conid [conid] hiding? import* *)
+  | `Topdecl_import of bool * ast0 * (ast0 option) * bool * (ast0 list)
+  (* qvar *)
   | `Import_var of ast0
-  (* tycon [cname*] *)
+  (* varid [qcname*] *)
   | `Import_type of ast0 * (ast0 list) option
-  (* tycls [var*] *)
-  | `Import_class of ast0 * (ast0 list) option
-  (* var *)
-  | `Cname_var of ast0
-  (* con *)
-  | `Cname_con of ast0
   (* simpletype type *)
   | `Topdecl_type of ast0 * ast0
-  (* NOTE no datatype contexts in our grammar *)
   (* simpletype constr* [deriving] *)
   | `Topdecl_data of ast0 * ast0 list * ast0 option
   (* simpletype newconstr [deriving] *)
   | `Topdecl_newtype of ast0 * ast0 * ast0 option
-  (* [scontext] tycls tyvar cdecl* *)
+  (* [scontext] conid varid cdecl* *)
   | `Topdecl_class of ast0 option * ast0 * ast0 * ast0 list
-  (* [scontext] qtycls inst idecl* *)
+  (* [scontext] qconid inst idecl* *)
   | `Topdecl_instance of ast0 option * ast0 * ast0 * ast0 list
   (* type* *)
   | `Topdecl_default of ast0 list
@@ -235,22 +223,8 @@ and ast0node =
   | `Topdecl_decl of ast0
   (* gendecl *)
   | `Decl_general of ast0
-  (* funlhs rhs *)
-  | `Decl_fun of ast0 * ast0
   (* infixpat rhs *)
-  | `Decl_pat of ast0 * ast0
-  (* gendecl *)
-  | `Cdecl_general of ast0
-  (* funlhs rhs *)
-  | `Cdecl_fun of ast0 * ast0
-  (* var rhs *)
-  | `Cdecl_var of ast0 * ast0
-  (* funlhs rhs *)
-  | `Idecl_fun of ast0 * ast0
-  (* var rhs *)
-  | `Idecl_var of ast0 * ast0
-  (* *)
-  | `Idecl_empty
+  | `Decl_eq of ast0 * ast0
   (* var* [context] type *)
   | `Gendecl_type of ast0 list * ast0 option * ast0
   (* fixity [integer] [op] *)

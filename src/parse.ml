@@ -287,7 +287,7 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
        { lhs = NTtopdecl;
-         rhs = [ T RClass; NT NTscontext; T REqualsRArrow; T ConId; T VarId; T RWhere; NT NTcdecls ];
+         rhs = [ T RClass; NT NTscontext; T REqualsRArrow; T ConId; T VarId; T RWhere; NT NTdecls ];
          semantic_action =
            (fun _ -> 0);
        };
@@ -297,7 +297,7 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
        { lhs = NTtopdecl;
-         rhs = [ T RClass; T ConId; T VarId; T RWhere; NT NTcdecls ];
+         rhs = [ T RClass; T ConId; T VarId; T RWhere; NT NTdecls ];
          semantic_action =
            (fun _ -> 0);
        };
@@ -307,7 +307,7 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
        { lhs = NTtopdecl;
-         rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqconid; NT NTinst; T RWhere; NT NTidecls ];
+         rhs = [ T RInstance; NT NTscontext; T REqualsRArrow; NT NTqconid; NT NTinst; T RWhere; NT NTdecls ];
          semantic_action =
            (fun _ -> 0);
        };
@@ -317,7 +317,7 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
        { lhs = NTtopdecl;
-         rhs = [ T RInstance; NT NTqconid; NT NTinst; T RWhere; NT NTidecls ];
+         rhs = [ T RInstance; NT NTqconid; NT NTinst; T RWhere; NT NTdecls ];
          semantic_action =
            (fun _ -> 0);
        };
@@ -378,76 +378,6 @@ let haskell_acfg = {
        };
        { lhs = NTdecl;
          rhs = [ NT NTinfixexp; NT NTrhs ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTcdecls;
-         rhs = [ T LCurly; T RCurly ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTcdecls;
-         rhs = [ T LCurly; NT NTcdecllist; T RCurly ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTcdecllist;
-         rhs = [ NT NTcdecl; T Semicolon; NT NTcdecllist ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTcdecllist;
-         rhs = [ NT NTcdecl ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTcdecl;
-         rhs = [ NT NTgendecl ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTcdecl;
-         rhs = [ NT NTinfixexp; NT NTrhs ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTcdecl;
-         rhs = [ NT NTqvar; NT NTrhs ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTidecls;
-         rhs = [ T LCurly; T RCurly ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTidecls;
-         rhs = [ T LCurly; NT NTidecllist; T RCurly ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTidecllist;
-         rhs = [ NT NTidecl; T Semicolon; NT NTidecllist ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTidecllist;
-         rhs = [ NT NTidecl ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTidecl;
-         rhs = [];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTidecl;
-         rhs = [ NT NTinfixexp; NT NTrhs ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTidecl;
-         rhs = [ NT NTqvar; NT NTrhs ];
          semantic_action =
            (fun _ -> 0);
        };
