@@ -353,7 +353,7 @@ let haskell_cfg = {
          rhs = [ NT NTconstr ]; };
 
        { lhs = NTconstr;
-         rhs = [ NT NTcon ]; };
+         rhs = [ NT NTbtype ]; };
 
        { lhs = NTconstr;
          rhs = [ NT NTbtype; NT NTconop; NT NTbtype ]; };

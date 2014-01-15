@@ -227,17 +227,20 @@ and ast0node =
   | `Decl_eq of ast0 * ast0
   (* var* [context] type *)
   | `Gendecl_type of ast0 list * ast0 option * ast0
-  (* fixity [integer] [op] *)
+  (* fixity [integer] op* *)
   | `Gendecl_fixity of ast0 * ast0 option * ast0 list
   (* *)
   | `Gendecl_empty
-  | `Fixity_left
-  | `Fixity_right
-  | `Fixity_none
-  (* btype [atype] *)
-  | `Type of ast0 * ast0 option
-  (* [btype] atype *)
-  | `Btype of ast0 option * ast0
+  (* btype type *)
+  | `Type_implies of ast0 * ast0
+  (* btype type *)
+  | `Type_mapsto of ast0 * ast0
+  (* btype *)
+  | `Type_btype of ast0
+  (* btype atype *)
+  | `Btype_app of ast0 * ast0
+  (* atype *)
+  | `Btype_atype of ast0
   (* gtycon *)
   | `Atype_con of ast0
   (* tyvar *)
@@ -253,31 +256,26 @@ and ast0node =
   | `Gtycon_unit
   | `Gtycon_list
   | `Gtycon_fun
-  | `Gtycon_tuple of int
-  (* class* *)
-  | `Context of ast0 list
-  (* qtycls tyvar *)
-  | `Class_simple of ast0 * ast0
-  (* qtycls tyvar atype* *)
-  | `Class_complex of ast0 * ast0 * ast0 list
+  (* comma* *)
+  | `Gtycon_tuple of ast0 list
   (* simpleclass* *)
   | `Scontext of ast0 list
-  (* qtycls tyvar *)
+  (* qconid varid *)
   | `Simpleclass of ast0 * ast0
-  (* tycon tyvar* *)
+  (* conid varid* *)
   | `Simpletype of ast0 * ast0 list
-  (* con (atype, strict?)* *)
-  | `Constr_con of ast0 * (ast0 * bool) list
-  (* btype/atype strict? conop btype/atype strict? *)
-  | `Constr_conop of ast0 * bool * ast0 * ast0 * bool
+  (* con btype *)
+  | `Constr_con of ast0 * ast0
+  (* btype conop btype *)
+  | `Constr_conop of ast0 * ast0 * ast0
   (* con fielddecl* *)
   | `Constr_fields of ast0 * ast0 list
   (* con atype *)
   | `Newconstr_con of ast0
   (* con var type *)
   | `Newconstr_field of ast0 * ast0 * ast0
-  (* var* type/atype strict? *)
-  | `Fielddecl of ast0 list * ast0 * bool
+  (* var* type/atype *)
+  | `Fielddecl of ast0 list * ast0
   (* dclass* *)
   | `Deriving of ast0 list
   (* qtycls *)

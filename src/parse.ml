@@ -597,7 +597,7 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
        { lhs = NTconstr;
-         rhs = [ NT NTcon ];
+         rhs = [ NT NTcon; NT NTbtype ];
          semantic_action =
            (fun _ -> 0);
        };
