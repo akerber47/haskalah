@@ -211,10 +211,12 @@ and ast0node =
   (* modid *)
   | Ast0_export_module of ast0
   (* This one is really weird bc qualified, as, and hiding are *not* actually
-   * Haskell keywords - they only work that way in import declarations. *)
-  (* [qualified-kwd] modid [as-kwd] as-modid [hiding-kwd] import* *)
+   * Haskell keywords - they only work that way in import declarations. So we
+   * store the things our parser *thinks* are keywords, and then check them
+   * later. *)
+  (* [qualified-kwd] modid [as-kwd] [as-modid] [hiding-kwd] import* *)
   | Ast0_impdecl of
-    ast0 option * ast0 * ast0 option * ast0 option * ast0 list
+    ast0 option * ast0 * ast0 option * ast0 option * ast0 option * ast0 list
   (* var *)
   | Ast0_import_var of ast0
   (* tycon [cname*] *)
