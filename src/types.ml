@@ -204,14 +204,17 @@ and ast0node =
   | Ast0_body of ast0 list
   (* qvar *)
   | Ast0_export_var of ast0
-  (* qtycon [cname*] *)
+  (* Note that lack of cname list indicates dotdot - one or the other is
+   * required by the grammar. *)
+  (* qconid [qcname*] *)
   | Ast0_export_type of ast0 * (ast0 list) option
-  (* qtycls [qvar*] *)
-  | Ast0_export_class of ast0 * (ast0 list) option
   (* modid *)
   | Ast0_export_module of ast0
-  (* qualified? modid [modid] hiding? import* *)
-  | Ast0_impdecl of bool * ast0 * (ast0 option) * bool * (ast0 list)
+  (* This one is really weird bc qualified, as, and hiding are *not* actually
+   * Haskell keywords - they only work that way in import declarations. *)
+  (* [qualified-kwd] modid [as-kwd] as-modid [hiding-kwd] import* *)
+  | Ast0_impdecl of
+    ast0 option * ast0 * ast0 option * ast0 option * ast0 list
   (* var *)
   | Ast0_import_var of ast0
   (* tycon [cname*] *)
