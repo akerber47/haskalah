@@ -10,16 +10,31 @@ module Haskell_parser_sim = Parser_gen.Make_sim (
     type lx = lexeme
     let lx_to_tm = (fun lx -> lx.token )
     let eof = EOF
-(*    type ast = ast0 *)
-    type ast = int
+    type ast = ast0
     let lx_print = Print.lexeme_print
-(*    let ast_print = Print.ast0_print *)
-    let ast_print = print_guess
+    let ast_print = Print.ast0_print
   end
 )
 
 open Haskell_parser_sim
 ;;
+
+(* Some simple helper functions for our semantic actions. *)
+
+(* Find the start and end block bounds of a given ast node, given those for all
+ * its children. Return the parent ast node with the bounds filled in *)
+let do_bounds child_asts parent_astnode =
+  let min_start = List.min (List.map (fun ast -> ast.blockstart) child_asts)
+  and max_end   = List.max (List.map (fun ast -> ast.blockend) child_asts)
+  in { node = parent_astnode; blockstart = min_start; blockend = max_end; }
+;;
+
+(* Cons a given ast onto an Ast0_partial_list *)
+let ast0cons car_ast cdr_ast =
+  match cdr_ast with
+  | Ast0_partial_list cdr_asts ->
+      Ast0_partial_list (car_ast::cdr_asts)
+  | _ -> assert false
 
 (* CHANGES TO THE HASKELL 98 GRAMMAR:
  * No datatype contexts
@@ -41,87 +56,147 @@ open Haskell_parser_sim
  * * vars parsed as qvars
  * * import/export decls do not distinguish classes from data constructors *)
 let haskell_acfg = {
+
+  (* There are only a few things we do in semantic actions. We grab the child
+   * AST nodes that have semantic meaning and put them in the AST we
+   * are building, and we compute the appropriate source code bounds for that
+   * portion of the AST. Note that our terminal action builds an AST node for
+   * *every* syntactic terminal - including terminals that are useless once
+   * parsing is complete, such as puncuation. This is why we only ever use
+   * *some* of the child nodes in each semantic action.
+   *
+   * Furthermore, we occasionally we copy the contents of a
+   * single child up (in cases where the AST node could only have one child
+   * anyways. eg a body always consists of a topdecllist, and hence the
+   * Ast0_body node type simply has those topdecls as its (direct) children -
+   * so when we encounter a NTbody we need to copy the children of the
+   * Ast0_topdecllist node into the Ast0_body node. See below. *)
   goal = Goal;
   productions =
     [| { lhs = Goal;
          rhs = [ NT NTmodule ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let module_ast = List.hd asts in
+             module_ast);
        };
        { lhs = NTmodule;
          rhs = [ T RModule; T ConId; T RWhere; NT NTbody ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let modid_ast = List.at asts 1
+             and body_ast = List.at asts 3 in
+             do_bounds asts (Ast0_module (Some modid_ast, None, body_ast)));
        };
        { lhs = NTmodule;
          rhs = [ T RModule; T ConId; NT NTexports; T RWhere; NT NTbody ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let modid_ast = List.at asts 1
+             and exports_ast = List.at asts 3
+             and body_ast = List.at asts 4 in
+             match exports_ast.node with
+             | Ast0_partial_list exportlist_asts ->
+               do_bounds asts
+                 (Ast0_module (Some modid_ast, Some exportlist_asts, body_ast))
+             | _ -> assert false);
        };
        { lhs = NTmodule;
          rhs = [ NT NTbody ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let body_ast = List.at asts 0 in
+             do_bounds asts (Ast0_module (None, None, body_ast)));
        };
        { lhs = NTbody;
          rhs = [ T LCurly; NT NTtopdecls; T RCurly ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let topdecls_ast = List.at asts 1 in
+             match topdecls_ast.node with
+             | Ast0_partial_list topdecllist_asts ->
+               do_bounds asts
+                 (Ast0_body topdecllist_asts)
+             | _ -> assert false);
        };
        { lhs = NTexports;
          rhs = [ T LParen; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts -> do_bounds asts (Ast0_partial_list []))
        };
        { lhs = NTexports;
          rhs = [ T LParen; T Comma; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts -> do_bounds asts (Ast0_partial_list []))
        };
        { lhs = NTexports;
          rhs = [ T LParen; NT NTexportlist; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let exportlist_ast = List.at asts 1 in
+             do_bounds asts exportlist_ast.node)
        };
        { lhs = NTexports;
          rhs = [ T LParen; NT NTexportlist; T Comma; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let exportlist_ast = List.at asts 1 in
+             do_bounds asts exportlist_ast.node)
        };
        { lhs = NTexportlist;
          rhs = [ NT NTexport; T Comma; NT NTexportlist ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let export_ast = List.hd asts
+             and exportlist_ast = List.at asts 2 in
+             do_bounds asts (ast0cons export_ast exportlist_ast.node))
        };
        { lhs = NTexportlist;
          rhs = [ NT NTexport ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let export_ast = List.hd asts in
+             do_bounds asts (Ast0_partial_list [export_ast]))
        };
        { lhs = NTexport;
          rhs = [ NT NTqvar ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let qvar_ast = List.hd asts in
+             do_bounds asts (Ast0_export_var qvar_ast))
        };
        { lhs = NTexport;
          rhs = [ NT NTqconid; T LParen; T RDotDot; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let qtycon_ast = List.hd asts in
+             do_bounds asts (Ast0_export_type (qtycon_ast, None)))
        };
        { lhs = NTexport;
          rhs = [ NT NTqconid; T LParen; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let qtycon_ast = List.hd asts in
+             do_bounds asts (Ast0_export_type (qtycon_ast, Some [])))
        };
        { lhs = NTexport;
          rhs = [ NT NTqconid; T LParen; NT NTqcnamelist; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let qconid_ast = List.hd asts
+             and qcnamelist_ast = List.at asts 2 in
+             match qcnamelist_ast.node with
+             | Ast0_partial_list qcnamelist_asts ->
+               do_bounds asts
+                 (Ast0_export_type (qconid_ast, Some qcnamelist_asts))
+             | _ -> assert false)
        };
        { lhs = NTexport;
          rhs = [ T RModule; T ConId ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let modid_ast = List.at asts 1 in
+             do_bounds asts (Ast0_export_module modid_ast))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId; NT NTimpspec ];
@@ -1304,7 +1379,8 @@ let haskell_acfg = {
            (fun _ -> 0);
        };
     |];
-  terminal_action = (fun _ -> 0);
+  terminal_action = (fun lx ->
+    { node = Ast0_leaf lx; blockstart = lx.startraw; blockend = lx.endraw });
 }
 
 let parse lxq =
