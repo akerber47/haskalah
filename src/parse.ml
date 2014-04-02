@@ -1313,6 +1313,6 @@ let parse lxq =
     (fun lx -> failwith
       (Printf.sprintf2 "Syntax error at %a" Print.lexeme_print lx))
     lxq with
-  | 0 -> { node = `Gcon_tuple 1; blockstart = -1; blockend = -1 }
-  | _ -> { node = `Gcon_tuple 0; blockstart = -1; blockend = -1 }
+  | 0 -> { node = Ast0_gcon_tuple 1; blockstart = -1; blockend = -1 }
+  | _ -> { node = Ast0_gcon_tuple 0; blockstart = -1; blockend = -1 }
 ;;
