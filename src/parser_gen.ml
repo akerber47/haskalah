@@ -674,7 +674,7 @@ type aug_grammar = {
   terminal_action : (lexeme -> ast);
 }
 
-let simulate acfg do_action do_goto do_fail lexemes =
+let simulate acfg do_action do_goto _do_fail lexemes =
   Util.dbg "Starting simulation of lexeme queue %a\n"
     (Queue.print ~first:"\n[ " ~sep:"\n  " ~last:" ]\n" lx_print) lexemes;
   (* Don't modify input queue *)
