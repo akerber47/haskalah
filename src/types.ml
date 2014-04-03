@@ -303,12 +303,6 @@ and ast0node =
   | Ast0_inst_list of ast0
   (* tyvar tyvar *)
   | Ast0_inst_fun of ast0 * ast0
-  (* var apat* *)
-  | Ast0_funlhs_var of ast0 * ast0 list
-  (* infixpat *)
-  | Ast0_funlhs_pat of ast0
-  (* funlhs apat* *)
-  | Ast0_funlhs_app of ast0 * ast0 list
   (* exp [decl*] *)
   | Ast0_rhs_exp of ast0 * (ast0 list) option
   (* gdrhs [decl*] *)
@@ -317,17 +311,13 @@ and ast0node =
   | Ast0_gdrhs of ast0 * ast0 * (ast0 list) option
   (* infixexp *)
   | Ast0_gd of ast0
-  (* infixexp [context] type *)
-  | Ast0_exp_typed of ast0 * ast0 option * ast0
-  (* infixexp *)
-  | Ast0_exp_infix of ast0
+  (* infixexp [type] *)
+  | Ast0_exp of ast0 * ast0 option
   (* exp10 qop infixexp *)
   | Ast0_infixexp_op of ast0 * ast0 * ast0
-  (* infixexp *)
-  | Ast0_infixexp_negate of ast0
   (* exp10 *)
   | Ast0_infixexp_exp10 of ast0
-  (* apat* exp *)
+  (* aexp* exp *)
   | Ast0_exp10_lambda of ast0 list * ast0
   (* decl* exp *)
   | Ast0_exp10_let of ast0 list * ast0
@@ -337,10 +327,8 @@ and ast0node =
   | Ast0_exp10_case of ast0 * ast0 list
   (* stmt* *)
   | Ast0_exp10_do of ast0 list
-  (* fexp *)
-  | Ast0_exp10_exp of ast0
-  (* [fexp] aexp *)
-  | Ast0_fexp of ast0 option * ast0
+  (* aexp* *)
+  | Ast0_exp10_aexp of ast0 list
   (* qvar *)
   | Ast0_aexp_var of ast0
   (* gcon *)
@@ -365,15 +353,23 @@ and ast0node =
   | Ast0_aexp_labelcon of ast0 * ast0 list
   (* aexp fbind* *)
   | Ast0_aexp_labelupdate of ast0 * ast0 list
-  (* pat exp *)
-  | Ast0_qual_gen of ast0 * ast0
+  (* These next three *should* be pattern productions, but we can't tell
+   * patterns and expressions apart in the parser. *)
+  (* var aexp *)
+  | Ast0_aexp_as of ast0 * (ast0 option)
+  (* aexp *)
+  | Ast0_aexp_irref of ast0
+  (* *)
+  | Ast0_aexp_underscore
+  (* exp exp *)
+  | Ast0_qual_assign of ast0 * ast0
   (* decl* *)
   | Ast0_qual_let of ast0 list
   (* exp *)
   | Ast0_qual_guard of ast0
-  (* pat exp [decl*] *)
-  | Ast0_alt_pat of ast0 * ast0 * (ast0 list) option
-  (* pat gdpat [decl*] *)
+  (* exp exp [decl*] *)
+  | Ast0_alt_match of ast0 * ast0 * (ast0 list) option
+  (* exp gdpat [decl*] *)
   | Ast0_alt_guard of ast0 * ast0 * (ast0 list) option
   (* gd exp [gdpat] *)
   | Ast0_gdpat of ast0 * ast0 * ast0 option
@@ -387,39 +383,6 @@ and ast0node =
   | Ast0_stmt_empty
   (* qvar exp *)
   | Ast0_fbind of ast0 * ast0
-  (* NOTE no n+k patterns in our grammar *)
-  (* infixpat *)
-  | Ast0_pat of ast0
-  (* pat10 qconop infixpat *)
-  | Ast0_infixpat_op of ast0 * ast0 * ast0
-  (* - (integer | Ast0_float) *)
-  | Ast0_infixpat_negate of ast0
-  (* pat10 *)
-  | Ast0_infixpat_pat10 of ast0
-  (* apat *)
-  | Ast0_pat10_pat of ast0
-  (* gcon apat* *)
-  | Ast0_pat10_conapp of ast0 * ast0 list
-  (* var apat *)
-  | Ast0_apat_as of ast0 * (ast0 option)
-  (* gcon *)
-  | Ast0_apat_nullary of ast0
-  (* qcon fpat* *)
-  | Ast0_apat_labeled of ast0 * ast0 list
-  (* literal *)
-  | Ast0_apat_literal of ast0
-  (* *)
-  | Ast0_apat_wildcard
-  (* pat *)
-  | Ast0_apat_paren of ast0
-  (* pat* *)
-  | Ast0_apat_tuple of ast0 list
-  (* pat* *)
-  | Ast0_apat_list of ast0 list
-  (* pat *)
-  | Ast0_apat_irref of ast0
-  (* qvar pat *)
-  | Ast0_fpat of ast0 * ast0
   (* *)
   | Ast0_gcon_unit
   | Ast0_gcon_list
@@ -435,10 +398,14 @@ and ast0node =
    * qtycls, qvarsym, qconsym, literal.
    * in context-free syntax:
    * var, qvar, con, qcon, varop, qvarop, conop, qconop, op, qop, gconsym. *)
+  | Ast0_parenthesized_leaf of lexeme
+  | Ast0_backquoted_leaf of lexeme
   | Ast0_leaf of lexeme
   (* This AST node is produced by ALL the NT<stuff>list productions.
    * NT<stuff>list => <stuff>*
-   * Basically this is a trick to cut down on how many AST nodes we need. *)
+   * Basically this is a trick to cut down on how many AST nodes we need,
+   * rather than building a huge "linked-list-shaped-tree" inside our AST each
+   * time we encounter a NT<stuff>list production. *)
   | Ast0_partial_list of ast0 list
 
 (* Lex error: index in input string where it occurred, and error message. *)
