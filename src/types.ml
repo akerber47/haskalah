@@ -238,12 +238,12 @@ and ast0node =
   | Ast0_decl_general of ast0
   (* infixpat rhs *)
   | Ast0_decl_eq of ast0 * ast0
-  (* var* [context] type *)
-  | Ast0_gendecl_type of ast0 list * ast0 option * ast0
+  (* var* type *)
+  | Ast0_decl_type of ast0 list * ast0
   (* fixity [integer] op* *)
-  | Ast0_gendecl_fixity of ast0 * ast0 option * ast0 list
+  | Ast0_decl_fixity of ast0 * ast0 option * ast0 list
   (* *)
-  | Ast0_gendecl_empty
+  | Ast0_decl_empty
   (* btype type *)
   | Ast0_type_implies of ast0 * ast0
   (* btype type *)
