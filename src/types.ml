@@ -244,8 +244,6 @@ and ast0node =
   | Ast0_gendecl_fixity of ast0 * ast0 option * ast0 list
   (* *)
   | Ast0_gendecl_empty
-  (* btype [atype] *)
-  | Ast0_type of ast0 * ast0 option
   (* btype type *)
   | Ast0_type_implies of ast0 * ast0
   (* btype type *)
