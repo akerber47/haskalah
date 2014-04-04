@@ -277,22 +277,20 @@ and ast0node =
   | Ast0_simpleclass of ast0 * ast0
   (* conid varid* *)
   | Ast0_simpletype of ast0 * ast0 list
-  (* con btype *)
-  | Ast0_constr_con of ast0 * ast0
+  (* btype *)
+  | Ast0_constr_con of ast0
   (* btype conop btype *)
   | Ast0_constr_conop of ast0 * ast0 * ast0
   (* con fielddecl* *)
   | Ast0_constr_fields of ast0 * ast0 list
   (* con atype *)
-  | Ast0_newconstr_con of ast0
+  | Ast0_newconstr_con of ast0 * ast0
   (* con var type *)
   | Ast0_newconstr_field of ast0 * ast0 * ast0
   (* var* type *)
   | Ast0_fielddecl of ast0 list * ast0
-  (* dclass* *)
+  (* qconid* *)
   | Ast0_deriving of ast0 list
-  (* qtycls *)
-  | Ast0_dclass of ast0
   (* gtycon *)
   | Ast0_inst_con of ast0
   (* gtycon tyvar* *)
@@ -304,7 +302,7 @@ and ast0node =
   (* tyvar tyvar *)
   | Ast0_inst_fun of ast0 * ast0
   (* exp [decl*] *)
-  | Ast0_rhs_exp of ast0 * (ast0 list) option
+  | Ast0_rhs_eq of ast0 * (ast0 list) option
   (* gdrhs [decl*] *)
   | Ast0_rhs_guard of ast0 * (ast0 list) option
   (* gd exp [gdrhs] *)
@@ -405,7 +403,9 @@ and ast0node =
    * NT<stuff>list => <stuff>*
    * Basically this is a trick to cut down on how many AST nodes we need,
    * rather than building a huge "linked-list-shaped-tree" inside our AST each
-   * time we encounter a NT<stuff>list production. *)
+   * time we encounter a NT<stuff>list production.
+   * This node should *not* be present in the final AST - contents should be
+   * copied out by higher-level node once list is complete. *)
   | Ast0_partial_list of ast0 list
 
 (* Lex error: index in input string where it occurred, and error message. *)
