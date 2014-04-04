@@ -203,97 +203,164 @@ let haskell_acfg = {
        { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId; NT NTimpspec ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let qualified_ast = List.at asts 1
+             and modid_ast = List.at asts 2
+             and as_ast = List.at asts 3
+             and asmodid_ast = List.at asts 4
+             and impspec_ast = List.at asts 5 in
+             do_bounds asts (Ast0_topdecl_import (Some qualified_ast,
+               modid_ast, Some as_ast, Some asmodid_ast, Some impspec_ast)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let qualified_ast = List.at asts 1
+             and modid_ast = List.at asts 2
+             and as_ast = List.at asts 3
+             and asmodid_ast = List.at asts 4 in
+             do_bounds asts (Ast0_topdecl_import (Some qualified_ast,
+               modid_ast, Some as_ast, Some asmodid_ast, None)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; NT NTimpspec ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let qualified_ast = List.at asts 1
+             and modid_ast = List.at asts 2
+             and impspec_ast = List.at asts 3 in
+             do_bounds asts (Ast0_topdecl_import (Some qualified_ast,
+               modid_ast, None, None, Some impspec_ast)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let qualified_ast = List.at asts 1
+             and modid_ast = List.at asts 2 in
+             do_bounds asts (Ast0_topdecl_import (Some qualified_ast,
+               modid_ast, None, None, None)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; T VarId; T ConId; NT NTimpspec ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let modid_ast = List.at asts 1
+             and as_ast = List.at asts 2
+             and asmodid_ast = List.at asts 3
+             and impspec_ast = List.at asts 4 in
+             do_bounds asts (Ast0_topdecl_import (None,
+               modid_ast, Some as_ast, Some asmodid_ast, Some impspec_ast)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; T VarId; T ConId ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let modid_ast = List.at asts 1
+             and as_ast = List.at asts 2
+             and asmodid_ast = List.at asts 3 in
+             do_bounds asts (Ast0_topdecl_import (None,
+               modid_ast, Some as_ast, Some asmodid_ast, None)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; NT NTimpspec ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let modid_ast = List.at asts 1
+             and impspec_ast = List.at asts 2 in
+             do_bounds asts (Ast0_topdecl_import (None,
+               modid_ast, None, None, Some impspec_ast)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let modid_ast = List.at asts 1 in
+             do_bounds asts (Ast0_topdecl_import (None,
+               modid_ast, None, None, None)))
        };
        { lhs = NTimpspec;
          rhs = [ T VarId; T LParen; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let hiding_ast = List.hd asts in
+             do_bounds asts (Ast0_impspec (Some hiding_ast, [])))
        };
        { lhs = NTimpspec;
          rhs = [ T VarId; T LParen; T Comma; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let hiding_ast = List.hd asts in
+             do_bounds asts (Ast0_impspec (Some hiding_ast, [])))
        };
        { lhs = NTimpspec;
          rhs = [ T VarId; T LParen; NT NTimportlist; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let hiding_ast = List.hd asts
+             and importlist_ast = List.at asts 2 in
+             do_bounds asts (Ast0_impspec (Some hiding_ast,
+               ast0getlist importlist_ast)))
        };
        { lhs = NTimpspec;
          rhs = [ T VarId; T LParen; NT NTimportlist; T Comma; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let hiding_ast = List.hd asts
+             and importlist_ast = List.at asts 2 in
+             do_bounds asts (Ast0_impspec (Some hiding_ast,
+               ast0getlist importlist_ast)))
        };
        { lhs = NTimpspec;
          rhs = [ T LParen; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             do_bounds asts (Ast0_impspec (None, [])))
        };
        { lhs = NTimpspec;
          rhs = [ T LParen; T Comma; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             do_bounds asts (Ast0_impspec (None, [])))
        };
        { lhs = NTimpspec;
          rhs = [ T LParen; NT NTimportlist; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let importlist_ast = List.at asts 1 in
+             do_bounds asts (Ast0_impspec (None,
+               ast0getlist importlist_ast)))
        };
        { lhs = NTimpspec;
          rhs = [ T LParen; NT NTimportlist; T Comma; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let importlist_ast = List.at asts 1 in
+             do_bounds asts (Ast0_impspec (None,
+               ast0getlist importlist_ast)))
        };
        { lhs = NTimportlist;
          rhs = [ NT NTimport; T Comma; NT NTimportlist ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let import_ast = List.hd asts
+             and importlist_ast = List.at asts 2 in
+             do_bounds asts (ast0cons import_ast importlist_ast))
        };
        { lhs = NTimportlist;
          rhs = [ NT NTimport ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let import_ast = List.hd asts in
+             do_bounds asts (Ast0_partial_list [import_ast]))
        };
        { lhs = NTimport;
          rhs = [ NT NTqvar ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let qvar_ast = List.hd asts in
+             do_bounds asts (Ast0_import_var qvar_ast))
        };
        { lhs = NTimport;
          rhs = [ T VarId; T LParen; T RDotDot; T RParen ];
