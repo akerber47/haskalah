@@ -1639,11 +1639,9 @@ let haskell_acfg = {
 }
 
 let parse lxq =
-  match simulate haskell_acfg Computed_actions_gotos.computed_do_action
+  simulate haskell_acfg Computed_actions_gotos.computed_do_action
     Computed_actions_gotos.computed_do_goto
     (fun lx -> failwith
       (Printf.sprintf2 "Syntax error at %a" Print.lexeme_print lx))
-    lxq with
-  | 0 -> { node = Ast0_gcon_tuple 1; blockstart = -1; blockend = -1 }
-  | _ -> { node = Ast0_gcon_tuple 0; blockstart = -1; blockend = -1 }
+    lxq
 ;;
