@@ -363,17 +363,17 @@ let haskell_acfg = {
              do_bounds asts (Ast0_import_var qvar_ast))
        };
        { lhs = NTimport;
-         rhs = [ T VarId; T LParen; T RDotDot; T RParen ];
+         rhs = [ T ConId; T LParen; T RDotDot; T RParen ];
          semantic_action =
            (fun _ -> 0);
        };
        { lhs = NTimport;
-         rhs = [ T VarId; T LParen; T RParen ];
+         rhs = [ T ConId; T LParen; T RParen ];
          semantic_action =
            (fun _ -> 0);
        };
        { lhs = NTimport;
-         rhs = [ T VarId; T LParen; NT NTqcnamelist; T RParen ];
+         rhs = [ T ConId; T LParen; NT NTqcnamelist; T RParen ];
          semantic_action =
            (fun _ -> 0);
        };

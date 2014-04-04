@@ -128,13 +128,13 @@ let haskell_cfg = {
          rhs = [ NT NTqvar ]; };
 
        { lhs = NTimport;
-         rhs = [ T VarId; T LParen; T RDotDot; T RParen ]; };
+         rhs = [ T ConId; T LParen; T RDotDot; T RParen ]; };
 
        { lhs = NTimport;
-         rhs = [ T VarId; T LParen; T RParen ]; };
+         rhs = [ T ConId; T LParen; T RParen ]; };
 
        { lhs = NTimport;
-         rhs = [ T VarId; T LParen; NT NTqcnamelist; T RParen ]; };
+         rhs = [ T ConId; T LParen; NT NTqcnamelist; T RParen ]; };
 
        { lhs = NTqcname;
          rhs = [ NT NTqvar ]; };
