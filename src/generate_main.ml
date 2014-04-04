@@ -518,10 +518,7 @@ let haskell_cfg = {
          rhs = [ T LParen; NT NTqop; NT NTinfixexp; T RParen ]; };
 
        { lhs = NTaexp;
-         rhs = [ NT NTqcon; T LCurly; T RCurly ]; };
-
-       { lhs = NTaexp;
-         rhs = [ NT NTqcon; T LCurly; NT NTfbindlist; T RCurly ]; };
+         rhs = [ NT NTaexp; T LCurly; T RCurly ]; };
 
        { lhs = NTaexp;
          rhs = [ NT NTaexp; T LCurly; NT NTfbindlist; T RCurly ]; };
