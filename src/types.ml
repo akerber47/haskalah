@@ -211,10 +211,12 @@ and ast0node =
    * Haskell keywords - they only work that way in import declarations. So we
    * store the things our parser *thinks* are keywords, and then check them
    * later. *)
-  (* [qualified-kwd] modid [as-kwd] [as-modid] [hiding-kwd] import* *)
+  (* [qualified-kwd] modid [as-kwd] [as-modid] [impspec] *)
   | Ast0_topdecl_import of
-    ast0 option * ast0 * ast0 option * ast0 option * ast0 option * ast0 list
-  (* var *)
+    ast0 option * ast0 * ast0 option * ast0 option * ast0 option
+  (* [hiding-kwd] import* *)
+  | Ast0_impspec of ast0 option * ast0 list
+  (* qvar *)
   | Ast0_import_var of ast0
   (* conid [qcname*] *)
   | Ast0_import_type of ast0 * (ast0 list) option

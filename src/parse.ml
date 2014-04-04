@@ -29,12 +29,20 @@ let do_bounds child_asts parent_astnode =
   in { node = parent_astnode; blockstart = min_start; blockend = max_end; }
 ;;
 
-(* Cons a given ast onto an Ast0_partial_list *)
+(* Cons a given ast onto an Ast0_partial_list. Return the new ast0node. *)
 let ast0cons car_ast cdr_ast =
-  match cdr_ast with
+  match cdr_ast.node with
   | Ast0_partial_list cdr_asts ->
       Ast0_partial_list (car_ast::cdr_asts)
   | _ -> assert false
+;;
+
+(* Extrct the list from a given Ast0_partial_list *)
+let ast0getlist ast =
+  match ast.node with
+  | Ast0_partial_list asts -> asts
+  | _ -> assert false
+;;
 
 (* CHANGES TO THE HASKELL 98 GRAMMAR:
  * No datatype contexts
@@ -98,11 +106,8 @@ let haskell_acfg = {
              let modid_ast = List.at asts 1
              and exports_ast = List.at asts 3
              and body_ast = List.at asts 4 in
-             match exports_ast.node with
-             | Ast0_partial_list exportlist_asts ->
-               do_bounds asts
-                 (Ast0_module (Some modid_ast, Some exportlist_asts, body_ast))
-             | _ -> assert false);
+             do_bounds asts (Ast0_module (Some modid_ast, Some
+               (ast0getlist exports_ast), body_ast)))
        };
        { lhs = NTmodule;
          rhs = [ NT NTbody ];
@@ -116,11 +121,8 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let topdecls_ast = List.at asts 1 in
-             match topdecls_ast.node with
-             | Ast0_partial_list topdecllist_asts ->
                do_bounds asts
-                 (Ast0_body topdecllist_asts)
-             | _ -> assert false);
+                 (Ast0_body (ast0getlist topdecls_ast)))
        };
        { lhs = NTexports;
          rhs = [ T LParen; T RParen ];
@@ -152,7 +154,7 @@ let haskell_acfg = {
            (fun asts ->
              let export_ast = List.hd asts
              and exportlist_ast = List.at asts 2 in
-             do_bounds asts (ast0cons export_ast exportlist_ast.node))
+             do_bounds asts (ast0cons export_ast exportlist_ast))
        };
        { lhs = NTexportlist;
          rhs = [ NT NTexport ];
@@ -188,11 +190,8 @@ let haskell_acfg = {
            (fun asts ->
              let qconid_ast = List.hd asts
              and qcnamelist_ast = List.at asts 2 in
-             match qcnamelist_ast.node with
-             | Ast0_partial_list qcnamelist_asts ->
-               do_bounds asts
-                 (Ast0_export_type (qconid_ast, Some qcnamelist_asts))
-             | _ -> assert false)
+             do_bounds asts (Ast0_export_type (qconid_ast,
+               Some (ast0getlist qcnamelist_ast))))
        };
        { lhs = NTexport;
          rhs = [ T RModule; T ConId ];
