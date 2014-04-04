@@ -587,16 +587,10 @@ let haskell_cfg = {
          rhs = [ NT NTgd; T RDashRArrow; NT NTexp ]; };
 
        { lhs = NTstmts;
-         rhs = [ NT NTstmtlist; NT NTexp; T Semicolon ]; };
+         rhs = [ NT NTstmtlist; T Semicolon ]; };
 
        { lhs = NTstmts;
-         rhs = [ NT NTstmtlist; NT NTexp ]; };
-
-       { lhs = NTstmts;
-         rhs = [ NT NTexp; T Semicolon ]; };
-
-       { lhs = NTstmts;
-         rhs = [ NT NTexp ]; };
+         rhs = [ NT NTstmtlist ]; };
 
        { lhs = NTstmtlist;
          rhs = [ NT NTstmt; T Semicolon; NT NTstmtlist ]; };
