@@ -304,11 +304,9 @@ and ast0node =
   (* exp [decl*] *)
   | Ast0_rhs_eq of ast0 * (ast0 list) option
   (* gdrhs [decl*] *)
-  | Ast0_rhs_guard of ast0 * (ast0 list) option
-  (* gd exp [gdrhs] *)
-  | Ast0_gdrhs of ast0 * ast0 * (ast0 list) option
-  (* infixexp *)
-  | Ast0_gd of ast0
+  | Ast0_rhs_guard of ast0 list * (ast0 list) option
+  (* infixexp exp *)
+  | Ast0_gdrhs of ast0 * ast0
   (* infixexp [type] *)
   | Ast0_exp of ast0 * ast0 option
   (* exp10 qop infixexp *)
@@ -326,7 +324,7 @@ and ast0node =
   (* stmt* *)
   | Ast0_exp10_do of ast0 list
   (* aexp* *)
-  | Ast0_exp10_aexp of ast0 list
+  | Ast0_exp10_aexps of ast0 list
   (* qvar *)
   | Ast0_aexp_var of ast0
   (* gcon *)
@@ -347,18 +345,16 @@ and ast0node =
   | Ast0_aexp_lsec of ast0 * ast0
   (* qop infixexp *)
   | Ast0_aexp_rsec of ast0 * ast0
-  (* qop fbind* *)
-  | Ast0_aexp_labelcon of ast0 * ast0 list
   (* aexp fbind* *)
-  | Ast0_aexp_labelupdate of ast0 * ast0 list
+  | Ast0_aexp_lbupdate of ast0 * ast0 list
   (* These next three *should* be pattern productions, but we can't tell
    * patterns and expressions apart in the parser. *)
   (* var aexp *)
-  | Ast0_aexp_as of ast0 * (ast0 option)
+  | Ast0_aexp_aspat of ast0 * ast0
   (* aexp *)
-  | Ast0_aexp_irref of ast0
+  | Ast0_aexp_irrefpat of ast0
   (* *)
-  | Ast0_aexp_underscore
+  | Ast0_aexp_wildpat
   (* exp exp *)
   | Ast0_qual_assign of ast0 * ast0
   (* decl* *)
@@ -367,10 +363,10 @@ and ast0node =
   | Ast0_qual_guard of ast0
   (* exp exp [decl*] *)
   | Ast0_alt_match of ast0 * ast0 * (ast0 list) option
-  (* exp gdpat [decl*] *)
-  | Ast0_alt_guard of ast0 * ast0 * (ast0 list) option
-  (* gd exp [gdpat] *)
-  | Ast0_gdpat of ast0 * ast0 * ast0 option
+  (* exp gdpat* [decl*] *)
+  | Ast0_alt_guard of ast0 * ast0 list * (ast0 list) option
+  (* gd exp *)
+  | Ast0_gdpat of ast0 * ast0
   (* exp *)
   | Ast0_stmt_exp of ast0
   (* pat exp *)
@@ -385,7 +381,7 @@ and ast0node =
   | Ast0_gcon_unit
   | Ast0_gcon_list
   (* int *)
-  | Ast0_gcon_tuple of int
+  | Ast0_gcon_tuple of ast0 list
   (* qcon *)
   | Ast0_gcon_qcon of ast0
   (* All of these below simply store a single id / symbol (or :), so

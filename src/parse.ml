@@ -39,11 +39,17 @@ let ast0cons car_ast cdr_ast =
 
 (* Extract the list from a given Ast0_partial_list (probably to plug into an
  * ast0 list field in a higher-up ast node). *)
-let ast0getlist ast =
-  match ast.node with
+let ast0nodegetlist astnode =
+  match astnode with
   | Ast0_partial_list asts -> asts
   | _ -> assert false
 ;;
+
+(* As above, but takes an ast0 rather than an ast0node *)
+let ast0getlist ast =
+  ast0nodegetlist ast.node
+;;
+
 
 (* A few boilerplate semantic actions that we use repeatedly *)
 
@@ -78,6 +84,22 @@ let id_action asts =
   List.hd asts
 ;;
 
+(* Move a lexeme from a leaf to a parenthesized_leaf *)
+let parenthesize_action asts =
+  match (List.hd asts).node with
+  | Ast0_leaf l ->
+      do_bounds asts (Ast0_parenthesized_leaf l)
+  | _ -> assert false
+;;
+
+(* Similarly, with backquoted_leaf *)
+let backquote_action asts =
+  match (List.hd asts).node with
+  | Ast0_leaf l ->
+      do_bounds asts (Ast0_backquoted_leaf l)
+  | _ -> assert false
+;;
+
 (* CHANGES TO THE HASKELL 98 GRAMMAR:
  * No datatype contexts
  * https://ghc.haskell.org/trac/haskell-prime/wiki/NoDatatypeContexts
@@ -89,19 +111,21 @@ let id_action asts =
 
 (* We also don't handle strict (!) fields, because having special grammar
  * symbols for things that are neither reserved operators nor special
- * characters is a stupid idea and makes parsing awful.  as_kwd implemented in
+ * characters is a stupid idea and makes parsing awful. As implemented in
  * Parser_gen, we resolve shift-reduce conflicts by shifting (so lambda, let,
- * if, etc. extend as_kwd far to the right as possible). *)
+ * if, etc. extend as far to the right as possible). *)
 
 (* The empty program (no tokens) does not compile.
  * To eliminate reduce-reduce conflicts:
- * * patterns parsed as_kwd expressions
- * * function / pattern left-hand sides of expressions parsed as_kwd general
+ * * patterns parsed as expressions
+ * * function / pattern left-hand sides of expressions parsed as general
  *     expressions (no distinguished variable / op)
- * * vars parsed as_kwd qvars
+ * * vars parsed as qvars
  * * import/export decls do not distinguish classes from data constructors
- * * contexts parsed as_kwd types
- * * import decls parsed as_kwd top-level decls *)
+ * * contexts parsed as types
+ * * import decls parsed as top-level decls
+ * * labeled constructors parsed as labeled updates
+ * * do blocks do not check that last stmt is an expr, or # of stmts > 0 *)
 let haskell_acfg = {
 
   (* There are only a few things we do in semantic actions. We grab the child
@@ -729,7 +753,8 @@ let haskell_acfg = {
            (fun asts ->
              let car = List.at asts 1
              and cdr = List.at asts 3 in
-             do_bounds asts (Ast0_atype_tuple (ast0cons car cdr)))
+             do_bounds asts (Ast0_atype_tuple
+               (ast0nodegetlist (ast0cons car cdr))))
        };
        { lhs = NTatype;
          rhs = [ T LSquare; NT NTtype; T RSquare ];
@@ -980,7 +1005,8 @@ let haskell_acfg = {
            (fun asts ->
              let t = List.at asts 1
              and ts = List.at asts 3 in
-             do_bounds asts (Ast0_inst_tuple (ast0cons t ts)))
+             do_bounds asts (Ast0_inst_tuple
+               (ast0nodegetlist (ast0cons t ts))))
        };
        { lhs = NTinst;
          rhs = [ T LSquare; T VarId; T RSquare ];
@@ -1016,517 +1042,596 @@ let haskell_acfg = {
        { lhs = NTrhs;
          rhs = [ T REquals; NT NTexp; T RWhere; NT NTdecls ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.at asts 1
+             and decls = List.at asts 3 in
+             do_bounds asts (Ast0_rhs_eq (e, Some (ast0getlist decls))))
        };
        { lhs = NTrhs;
          rhs = [ T REquals; NT NTexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.at asts 1 in
+             do_bounds asts (Ast0_rhs_eq (e, None)))
        };
        { lhs = NTrhs;
          rhs = [ NT NTgdrhs; T RWhere; NT NTdecls ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let g = List.hd asts
+             and decls = List.at asts 2 in
+             do_bounds asts (Ast0_rhs_guard (ast0getlist g,
+               Some (ast0getlist decls))))
        };
        { lhs = NTrhs;
          rhs = [ NT NTgdrhs ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let g = List.hd asts in
+             do_bounds asts (Ast0_rhs_guard (ast0getlist g, None)))
        };
+       (* The next 2 semantic actions are super ugly, as they're trying to
+        * kludge around the weird grammar for gdrhs to produce a list of simple
+        * guards (rather than a bunch of ugly optional next gdrhs crap) *)
        { lhs = NTgdrhs;
          rhs = [ NT NTgd; T REquals; NT NTexp; NT NTgdrhs ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let g = List.hd asts
+             and e = List.at asts 2
+             and rhs = List.at asts 3 in
+             cons_nodelim_action [(do_bounds asts (Ast0_gdrhs (g, e))); rhs])
        };
        { lhs = NTgdrhs;
          rhs = [ NT NTgd; T REquals; NT NTexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let g = List.hd asts
+             and e = List.at asts 2 in
+             singleton_action [do_bounds asts (Ast0_gdrhs (g, e))])
        };
        { lhs = NTgd;
          rhs = [ T RPipe; NT NTinfixexp ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = at_action 1
        };
        { lhs = NTexp;
          rhs = [ NT NTinfixexp; T RColonColon; NT NTtype ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.hd asts
+             and t = List.at asts 2 in
+             do_bounds asts (Ast0_exp (e, Some t)))
        };
        { lhs = NTexp;
          rhs = [ NT NTinfixexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.hd asts in
+             do_bounds asts (Ast0_exp (e, None)))
        };
        { lhs = NTinfixexp;
          rhs = [ NT NTexp10; NT NTqop; NT NTinfixexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.hd asts
+             and op = List.at asts 1
+             and e2 = List.at asts 2 in
+             do_bounds asts (Ast0_infixexp_op (e1, op, e2)))
        };
        { lhs = NTinfixexp;
          rhs = [ NT NTexp10 ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.hd asts in
+             do_bounds asts (Ast0_infixexp_exp10 e))
        };
        { lhs = NTexp10;
          rhs = [ T RBackslash; NT NTaexplist; T RDashRArrow; NT NTexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let es = List.at asts 1
+             and e = List.at asts 3 in
+             do_bounds asts (Ast0_exp10_lambda (ast0getlist es, e)))
        };
        { lhs = NTexp10;
          rhs = [ T RLet; NT NTdecls; T RIn; NT NTexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let ds = List.at asts 1
+             and e = List.at asts 3 in
+             do_bounds asts (Ast0_exp10_let (ast0getlist ds, e)))
        };
        { lhs = NTexp10;
          rhs = [ T RIf; NT NTexp; T RThen; NT NTexp; T RElse; NT NTexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.at asts 1
+             and e2 = List.at asts 3
+             and e3 = List.at asts 5 in
+             do_bounds asts (Ast0_exp10_if (e1, e2, e3)))
        };
        { lhs = NTexp10;
          rhs = [ T RCase; NT NTexp; T ROf; T LCurly; NT NTalts; T RCurly ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.at asts 1
+             and alts = List.at asts 4 in
+             do_bounds asts (Ast0_exp10_case (e, ast0getlist alts)))
        };
        { lhs = NTexp10;
          rhs = [ T RDo; T LCurly; NT NTstmts; T RCurly ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let stmts = List.at asts 2 in
+             do_bounds asts (Ast0_exp10_do (ast0getlist stmts)))
        };
        { lhs = NTexp10;
          rhs = [ NT NTaexplist ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let aexps = List.hd asts in
+             do_bounds asts (Ast0_exp10_aexps (ast0getlist aexps)))
        };
        { lhs = NTaexp;
          rhs = [ NT NTqvar ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let v = List.hd asts in
+             do_bounds asts (Ast0_aexp_var v))
        };
        { lhs = NTaexp;
          rhs = [ NT NTgcon ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let c = List.hd asts in
+             do_bounds asts (Ast0_aexp_con c))
        };
        { lhs = NTaexp;
          rhs = [ NT NTliteral ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let l = List.hd asts in
+             do_bounds asts (Ast0_aexp_literal l))
        };
        { lhs = NTaexp;
          rhs = [ T LParen; NT NTexp; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.at asts 1 in
+             do_bounds asts (Ast0_aexp_paren e))
        };
        { lhs = NTaexp;
          rhs = [ T LParen; NT NTexp; T Comma; NT NTexplist; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.at asts 1
+             and es = List.at asts 3 in
+             do_bounds asts (Ast0_aexp_tuple
+               (ast0nodegetlist (ast0cons e es))))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexplist; T RSquare ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let es = List.at asts 1 in
+             do_bounds asts (Ast0_aexp_list (ast0getlist es)))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexp; T Comma; NT NTexp; T RDotDot; NT NTexp; T RSquare ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.at asts 1
+             and e2 = List.at asts 3
+             and e3 = List.at asts 5 in
+             do_bounds asts (Ast0_aexp_seq (e1, Some e2, Some e3)))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexp; T Comma; NT NTexp; T RDotDot; T RSquare ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.at asts 1
+             and e2 = List.at asts 3 in
+             do_bounds asts (Ast0_aexp_seq (e1, Some e2, None)))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexp; T RDotDot; NT NTexp; T RSquare ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.at asts 1
+             and e3 = List.at asts 5 in
+             do_bounds asts (Ast0_aexp_seq (e1, None, Some e3)))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexp; T RDotDot; T RSquare ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.at asts 1 in
+             do_bounds asts (Ast0_aexp_seq (e1, None, None)))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexp; T RPipe; NT NTquallist; T RSquare ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.at asts 1
+             and qs = List.at asts 3 in
+             do_bounds asts (Ast0_aexp_comp (e1, ast0getlist qs)))
        };
        { lhs = NTaexp;
          rhs = [ T LParen; NT NTinfixexp; NT NTqop; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.at asts 1
+             and op = List.at asts 2 in
+             do_bounds asts (Ast0_aexp_lsec (e, op)))
        };
        { lhs = NTaexp;
          rhs = [ T LParen; NT NTqop; NT NTinfixexp; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let op = List.at asts 1
+             and e = List.at asts 2 in
+             do_bounds asts (Ast0_aexp_rsec (op, e)))
        };
        { lhs = NTaexp;
-         rhs = [ NT NTqcon; T LCurly; T RCurly ];
+         rhs = [ NT NTaexp; T LCurly; T RCurly ];
          semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTaexp;
-         rhs = [ NT NTqcon; T LCurly; NT NTfbindlist; T RCurly ];
-         semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.hd asts in
+             do_bounds asts (Ast0_aexp_lbupdate (e, [])))
        };
        { lhs = NTaexp;
          rhs = [ NT NTaexp; T LCurly; NT NTfbindlist; T RCurly ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.hd asts
+             and fbl = List.at asts 2 in
+             do_bounds asts (Ast0_aexp_lbupdate (e, ast0getlist fbl)))
        };
        { lhs = NTaexp;
          rhs = [ NT NTqvar; T RAt; NT NTaexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let v = List.hd asts
+             and e = List.at asts 2 in
+             do_bounds asts (Ast0_aexp_aspat (v, e)))
        };
        { lhs = NTaexp;
          rhs = [ T RTilde; NT NTaexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.at asts 1 in
+             do_bounds asts (Ast0_aexp_irrefpat e))
        };
        { lhs = NTaexp;
          rhs = [ T RUnderscore ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             do_bounds asts Ast0_aexp_wildpat)
        };
        { lhs = NTexplist;
          rhs = [ NT NTexp; T Comma; NT NTexplist ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = cons_action
        };
        { lhs = NTexplist;
          rhs = [ NT NTexp ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = singleton_action
        };
        { lhs = NTquallist;
          rhs = [ NT NTqual; T Comma; NT NTquallist ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = cons_action
        };
        { lhs = NTquallist;
          rhs = [ NT NTqual ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = singleton_action
        };
        { lhs = NTfbindlist;
          rhs = [ NT NTfbind; T Comma; NT NTfbindlist ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = cons_action
        };
        { lhs = NTfbindlist;
          rhs = [ NT NTfbind ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = singleton_action
        };
        { lhs = NTqual;
          rhs = [ NT NTexp; T RLArrowDash; NT NTexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.hd asts
+             and e2 = List.at asts 2 in
+             do_bounds asts (Ast0_qual_assign (e1, e2)))
        };
        { lhs = NTqual;
          rhs = [ T RLet; NT NTdecls ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let ds = List.at asts 1 in
+             do_bounds asts (Ast0_qual_let (ast0getlist ds)))
        };
        { lhs = NTqual;
          rhs = [ NT NTexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.hd asts in
+             do_bounds asts (Ast0_qual_guard e))
        };
        { lhs = NTalts;
          rhs = [ NT NTaltlist ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTaltlist;
          rhs = [ NT NTalt; T Semicolon; NT NTaltlist ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = cons_action
        };
        { lhs = NTaltlist;
          rhs = [ NT NTalt ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = singleton_action
        };
        { lhs = NTalt;
          rhs = [ NT NTexp; T RDashRArrow; NT NTexp; T RWhere; NT NTdecls ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.hd asts
+             and e2 = List.at asts 2
+             and ds = List.at asts 4 in
+             do_bounds asts (Ast0_alt_match (e1, e2, Some (ast0getlist ds))))
        };
        { lhs = NTalt;
          rhs = [ NT NTexp; T RDashRArrow; NT NTexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.hd asts
+             and e2 = List.at asts 2 in
+             do_bounds asts (Ast0_alt_match (e1, e2, None)))
        };
        { lhs = NTalt;
          rhs = [ NT NTexp; NT NTgdpat; T RWhere; NT NTdecls ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.hd asts
+             and g = List.at asts 1
+             and ds = List.at asts 3 in
+             do_bounds asts (Ast0_alt_guard (e, ast0getlist g,
+               Some (ast0getlist ds))))
        };
        { lhs = NTalt;
          rhs = [ NT NTexp; NT NTgdpat ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.hd asts
+             and g = List.at asts 1 in
+             do_bounds asts (Ast0_alt_guard (e, ast0getlist g, None)))
        };
+       (* See comment for gdrhs (these 2 are pretty much the same thing) *)
        { lhs = NTgdpat;
          rhs = [ NT NTgd; T RDashRArrow; NT NTexp; NT NTgdpat ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let g = List.hd asts
+             and e = List.at asts 2
+             and rhs = List.at asts 3 in
+             cons_nodelim_action [(do_bounds asts (Ast0_gdpat (g, e))); rhs])
        };
        { lhs = NTgdpat;
          rhs = [ NT NTgd; T RDashRArrow; NT NTexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let g = List.hd asts
+             and e = List.at asts 2 in
+             singleton_action [do_bounds asts (Ast0_gdpat (g, e))])
        };
        { lhs = NTstmts;
-         rhs = [ NT NTstmtlist; NT NTexp; T Semicolon ];
-         semantic_action =
-           (fun _ -> 0);
+         rhs = [ NT NTstmtlist; T Semicolon ];
+         semantic_action = at_action 0
        };
        { lhs = NTstmts;
-         rhs = [ NT NTstmtlist; NT NTexp ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTstmts;
-         rhs = [ NT NTexp; T Semicolon ];
-         semantic_action =
-           (fun _ -> 0);
-       };
-       { lhs = NTstmts;
-         rhs = [ NT NTexp ];
-         semantic_action =
-           (fun _ -> 0);
+         rhs = [ NT NTstmtlist ];
+         semantic_action = id_action
        };
        { lhs = NTstmtlist;
          rhs = [ NT NTstmt; T Semicolon; NT NTstmtlist ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = cons_action
        };
        { lhs = NTstmtlist;
          rhs = [ NT NTstmt ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = singleton_action
        };
        { lhs = NTstmt;
          rhs = [ NT NTexp; T Semicolon ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e = List.hd asts in
+             do_bounds asts (Ast0_stmt_exp e))
        };
        { lhs = NTstmt;
          rhs = [ NT NTexp; T RLArrowDash; NT NTexp; T Semicolon ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let e1 = List.hd asts
+             and e2 = List.at asts 2 in
+             do_bounds asts (Ast0_stmt_assign (e1, e2)))
        };
        { lhs = NTstmt;
          rhs = [ T RLet; NT NTdecls; T Semicolon ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let ds = List.at asts 1 in
+             do_bounds asts (Ast0_stmt_let (ast0getlist ds)))
        };
        { lhs = NTstmt;
          rhs = [ T Semicolon ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             do_bounds asts Ast0_stmt_empty)
        };
        { lhs = NTfbind;
          rhs = [ NT NTqvar; T REquals; NT NTexp ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let v = List.hd asts
+             and e = List.at asts 2 in
+             do_bounds asts (Ast0_fbind (v, e)))
        };
        { lhs = NTgcon;
          rhs = [ T LParen; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             do_bounds asts Ast0_gcon_unit)
        };
        { lhs = NTgcon;
          rhs = [ T LSquare; T RSquare ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             do_bounds asts Ast0_gcon_list)
        };
        { lhs = NTgcon;
          rhs = [ T LParen; NT NTcommalist; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let commas = List.at asts 1 in
+             do_bounds asts (Ast0_gcon_tuple (ast0getlist commas)))
        };
        { lhs = NTgcon;
          rhs = [ NT NTqcon ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let c = List.hd asts in
+             do_bounds asts (Ast0_gcon_qcon c))
        };
        { lhs = NTqvar;
          rhs = [ T QVarId ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqvar;
          rhs = [ T VarId ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqvar;
          rhs = [ T LParen; T QVarSym; T RParen ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = parenthesize_action
        };
        { lhs = NTqvar;
          rhs = [ T LParen; T VarSym; T RParen ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = parenthesize_action
        };
        { lhs = NTcon;
          rhs = [ T ConId ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTcon;
          rhs = [ T LParen; T ConSym; T RParen ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = parenthesize_action
        };
        { lhs = NTqcon;
          rhs = [ T QConId ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqcon;
          rhs = [ T ConId ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqcon;
          rhs = [ T LParen; T RColon; T RParen ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = parenthesize_action
        };
        { lhs = NTqcon;
          rhs = [ T LParen; T QConSym; T RParen ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = parenthesize_action
        };
        { lhs = NTqcon;
          rhs = [ T LParen; T ConSym; T RParen ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = parenthesize_action
        };
        { lhs = NTqvarop;
          rhs = [ T QVarSym ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqvarop;
          rhs = [ T VarSym ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqvarop;
          rhs = [ T Backquote; T QVarId; T Backquote ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = backquote_action
        };
        { lhs = NTqvarop;
          rhs = [ T Backquote; T VarId; T Backquote ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = backquote_action
        };
        { lhs = NTconop;
          rhs = [ T ConSym ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTconop;
          rhs = [ T Backquote; T ConId; T Backquote ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = backquote_action
        };
        { lhs = NTqconop;
          rhs = [ T RColon ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqconop;
          rhs = [ T QConSym ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqconop;
          rhs = [ T ConSym ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqconop;
          rhs = [ T Backquote; T QConId; T Backquote ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = backquote_action
        };
        { lhs = NTqconop;
          rhs = [ T Backquote; T ConId; T Backquote ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = backquote_action
        };
        { lhs = NTop;
          rhs = [ NT NTqvarop ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTop;
          rhs = [ NT NTconop ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqop;
          rhs = [ NT NTqvarop ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqop;
          rhs = [ NT NTqconop ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqvarid;
          rhs = [ T QVarId ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqvarid;
          rhs = [ T VarId ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqconid;
          rhs = [ T QConId ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTqconid;
          rhs = [ T ConId ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTliteral;
          rhs = [ T IntLit ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTliteral;
          rhs = [ T FloatLit ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTliteral;
          rhs = [ T CharLit ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTliteral;
          rhs = [ T StringLit ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
     |];
   terminal_action = (fun lx ->
