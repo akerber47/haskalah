@@ -859,127 +859,159 @@ let haskell_acfg = {
        { lhs = NTconstr;
          rhs = [ NT NTbtype ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let t = List.hd asts in
+             do_bounds asts (Ast0_constr_con t))
        };
        { lhs = NTconstr;
          rhs = [ NT NTbtype; NT NTconop; NT NTbtype ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let t1 = List.hd asts
+             and op = List.at asts 1
+             and t2 = List.at asts 2 in
+             do_bounds asts (Ast0_constr_conop (t1, op, t2)))
        };
        { lhs = NTconstr;
          rhs = [ NT NTcon; T LCurly; T RCurly ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let c = List.hd asts in
+             do_bounds asts (Ast0_constr_fields (c, [])))
        };
        { lhs = NTconstr;
          rhs = [ NT NTcon; T LCurly; NT NTfielddecllist; T RCurly ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let c = List.hd asts
+             and fdl = List.at asts 2 in
+             do_bounds asts (Ast0_constr_fields (c, ast0getlist fdl)))
        };
        { lhs = NTfielddecllist;
          rhs = [ NT NTfielddecl; T Comma; NT NTfielddecllist ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = cons_action
        };
        { lhs = NTfielddecllist;
          rhs = [ NT NTfielddecl ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = singleton_action
        };
        { lhs = NTnewconstr;
          rhs = [ NT NTcon; NT NTatype ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let c = List.hd asts
+             and t = List.at asts 1 in
+             do_bounds asts (Ast0_newconstr_con (c, t)))
        };
        { lhs = NTnewconstr;
          rhs = [ NT NTcon; T LCurly; NT NTqvar; T RColonColon; NT NTtype; T RCurly ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let c = List.hd asts
+             and v = List.at asts 2
+             and t = List.at asts 4 in
+             do_bounds asts (Ast0_newconstr_field (c, v, t)))
        };
        { lhs = NTfielddecl;
          rhs = [ NT NTqvars; T RColonColon; NT NTtype ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let vs = List.hd asts
+             and t = List.at asts 2 in
+             do_bounds asts (Ast0_fielddecl (ast0getlist vs, t)))
        };
        { lhs = NTderiving;
          rhs = [ T RDeriving; NT NTdclass ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let dc = List.at asts 1 in
+             do_bounds asts (Ast0_deriving [dc]))
        };
        { lhs = NTderiving;
          rhs = [ T RDeriving; T LParen; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             do_bounds asts (Ast0_deriving []))
        };
        { lhs = NTderiving;
          rhs = [ T RDeriving; T LParen; NT NTdclasslist; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let dcl = List.at asts 2 in
+             do_bounds asts (Ast0_deriving (ast0getlist dcl)))
        };
        { lhs = NTdclasslist;
          rhs = [ NT NTdclass; T Comma; NT NTdclasslist ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = cons_action
        };
        { lhs = NTdclasslist;
          rhs = [ NT NTdclass ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = singleton_action
        };
        { lhs = NTdclass;
          rhs = [ NT NTqconid ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = id_action
        };
        { lhs = NTinst;
          rhs = [ NT NTgtycon ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let c = List.hd asts in
+             do_bounds asts (Ast0_inst_con c))
        };
        { lhs = NTinst;
          rhs = [ T LParen; NT NTgtycon; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let c = List.at asts 1 in
+             do_bounds asts (Ast0_inst_con c))
        };
        { lhs = NTinst;
          rhs = [ T LParen; NT NTgtycon; NT NTtyvarlist; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let c = List.at asts 1
+             and ts = List.at asts 2 in
+             do_bounds asts (Ast0_inst_app (c, ast0getlist ts)))
        };
        { lhs = NTinst;
          rhs = [ T LParen; T VarId; T Comma; NT NTtyvarcommalist; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let t = List.at asts 1
+             and ts = List.at asts 3 in
+             do_bounds asts (Ast0_inst_tuple (ast0cons t ts)))
        };
        { lhs = NTinst;
          rhs = [ T LSquare; T VarId; T RSquare ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let t = List.at asts 1 in
+             do_bounds asts (Ast0_inst_list t))
        };
        { lhs = NTinst;
          rhs = [ T LParen; T VarId; T RDashRArrow; T VarId; T RParen ];
          semantic_action =
-           (fun _ -> 0);
+           (fun asts ->
+             let t1 = List.at asts 1
+             and t2 = List.at asts 2 in
+             do_bounds asts (Ast0_inst_fun (t1, t2)))
        };
        { lhs = NTtyvarcommalist;
          rhs = [ T VarId; T Comma; NT NTtyvarcommalist ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = cons_action
        };
        { lhs = NTtyvarcommalist;
          rhs = [ T VarId ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = singleton_action
        };
        { lhs = NTaexplist;
          rhs = [ NT NTaexp; NT NTaexplist ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = cons_nodelim_action
        };
        { lhs = NTaexplist;
          rhs = [ NT NTaexp ];
-         semantic_action =
-           (fun _ -> 0);
+         semantic_action = singleton_action
        };
        { lhs = NTrhs;
          rhs = [ T REquals; NT NTexp; T RWhere; NT NTdecls ];
