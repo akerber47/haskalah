@@ -31,16 +31,19 @@ haskalah-test.byte: test/test_main.byte
 	ln -sf _build/$< $@
 
 # Make ocamlbuild do all the actual dependency generation / checks etc
-$(OCAML_TARGETS) $(OCAML.byte_TARGETS):
+$(OCAML_TARGETS) $(OCAML.byte_TARGETS): parse-gen
 	ocamlbuild $(OCAMLBUILD_FLAGS) $@
 
 clean:
 	$(RM) $(TARGETS)
 	ocamlbuild -clean -classic-display
 
+parse-gen: src/computed_actions_gotos.ml
+
 PARSE_GEN_FLAGS = $(OCAMLBUILD_FLAGS) -build-dir ./_temp_parse_gen_build
-parse-gen:
+src/computed_actions_gotos.ml: src/parser_gen.ml src/generate_main.ml
 	ocamlbuild $(PARSE_GEN_FLAGS) src/generate_main.native
-	./_temp_parse_gen_build/src/generate_main.native
+	# If there seems to be no debug output, check dbg in src/util.ml
+	./_temp_parse_gen_build/src/generate_main.native 2> parser_gen_log
 	$(RM) -r _temp_parse_gen_build
 
