@@ -84,21 +84,23 @@ let id_action asts =
  * https://ghc.haskell.org/trac/haskell-prime/wiki/NoNPlusKPatterns
  * Fixity resolution is later (made in Haskell 2010). We also handle unary
  * negation at that point.
- * https://ghc.haskell.org/trac/haskell-prime/wiki/FixityResolution
- * We also don't handle strict (!) fields, because having special grammar
+ * https://ghc.haskell.org/trac/haskell-prime/wiki/FixityResolution *)
+
+(* We also don't handle strict (!) fields, because having special grammar
  * symbols for things that are neither reserved operators nor special
- * characters is a stupid idea and makes parsing awful.
- * As implemented in Parser_gen, we resolve shift-reduce conflicts by shifting
- * (so lambda, let, if, etc. extend as far to the right as possible).
- * The empty program (no tokens) does not compile.
+ * characters is a stupid idea and makes parsing awful.  as_kwd implemented in
+ * Parser_gen, we resolve shift-reduce conflicts by shifting (so lambda, let,
+ * if, etc. extend as_kwd far to the right as possible). *)
+
+(* The empty program (no tokens) does not compile.
  * To eliminate reduce-reduce conflicts:
- * * patterns parsed as expressions
- * * function / pattern left-hand sides of expressions parsed as general
+ * * patterns parsed as_kwd expressions
+ * * function / pattern left-hand sides of expressions parsed as_kwd general
  *     expressions (no distinguished variable / op)
- * * vars parsed as qvars
+ * * vars parsed as_kwd qvars
  * * import/export decls do not distinguish classes from data constructors
- * * contexts parsed as types
- * * import decls parsed as top-level decls *)
+ * * contexts parsed as_kwd types
+ * * import decls parsed as_kwd top-level decls *)
 let haskell_acfg = {
 
   (* There are only a few things we do in semantic actions. We grab the child
