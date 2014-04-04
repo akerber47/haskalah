@@ -256,7 +256,7 @@ and ast0node =
   | Ast0_btype_atype of ast0
   (* gtycon *)
   | Ast0_atype_con of ast0
-  (* tyvar *)
+  (* varid *)
   | Ast0_atype_var of ast0
   (* type* *)
   | Ast0_atype_tuple of ast0 list
@@ -270,7 +270,7 @@ and ast0node =
   | Ast0_gtycon_list
   | Ast0_gtycon_fun
   (* comma* *)
-  | Ast0_gtycon_tuple of int
+  | Ast0_gtycon_tuple of ast0 list
   (* simpleclass* *)
   | Ast0_scontext of ast0 list
   (* qconid varid *)
