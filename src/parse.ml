@@ -37,11 +37,44 @@ let ast0cons car_ast cdr_ast =
   | _ -> assert false
 ;;
 
-(* Extrct the list from a given Ast0_partial_list *)
+(* Extract the list from a given Ast0_partial_list *)
 let ast0getlist ast =
   match ast.node with
   | Ast0_partial_list asts -> asts
   | _ -> assert false
+;;
+
+(* A few boilerplate semantic actions that we use repeatedly *)
+
+(* Build a partial list by consing the 0th input ast onto the 2nd (assuming the
+ * 1st is a delimiter *)
+let cons_action asts =
+  let car_ast = List.hd asts
+  and cdr_ast = List.at asts 2 in
+  do_bounds asts (ast0cons car_ast cdr_ast)
+;;
+
+(* Same, but with 1st as cdr *)
+let cons_nodelim_action asts =
+  let car_ast = List.hd asts
+  and cdr_ast = List.at asts 1 in
+  do_bounds asts (ast0cons car_ast cdr_ast)
+;;
+
+(* Build a one-element partial list from the 0th input ast *)
+let singleton_action asts =
+  do_bounds asts (Ast0_partial_list [List.hd asts])
+;;
+
+(* Extract the nth input ast and ignore the rest (except for bounds) *)
+let at_action n asts =
+  do_bounds asts ((List.at asts n).node)
+;;
+
+(* Extract the 0th input ast, leaving its bounds unmodified. Same as (at_action
+ * 0) in case where there is only one input ast - the intended use case.  *)
+let id_action asts =
+  List.hd asts
 ;;
 
 (* CHANGES TO THE HASKELL 98 GRAMMAR:
