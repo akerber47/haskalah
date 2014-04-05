@@ -41,7 +41,7 @@ clean:
 parse-gen: src/computed_actions_gotos.ml
 
 PARSE_GEN_FLAGS = $(OCAMLBUILD_FLAGS) -build-dir ./_temp_parse_gen_build
-src/computed_actions_gotos.ml: src/parser_gen.ml src/generate_main.ml
+src/computed_actions_gotos.ml: src/generate_main.ml
 	ocamlbuild $(PARSE_GEN_FLAGS) src/generate_main.native
 	# If there seems to be no debug output, check dbg in src/util.ml
 	./_temp_parse_gen_build/src/generate_main.native 2> parser_gen_log

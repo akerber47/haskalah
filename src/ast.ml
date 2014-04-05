@@ -129,7 +129,7 @@ let rec ast0_general_foldl_helper pref postf depth acc ast =
     | Ast0_parenthesized_leaf _
     | Ast0_backquoted_leaf _
     | Ast0_leaf _ -> []
-    | Ast0_partial_list _ -> assert false
+    | Ast0_partial_list a1s -> a1s
   in
   let acc2 = List.fold_left (ast0_general_foldl_helper pref postf (depth + 1))
                             acc1

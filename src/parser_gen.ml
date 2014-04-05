@@ -699,10 +699,12 @@ let simulate acfg do_action do_goto _do_fail lexemes =
             try
               match do_action (s, Psa.lx_to_tm nextlx) with
               | (Shift nexts) -> begin
-                Util.dbg "Action: Shift %d\n" nexts;
+                Util.dbg2 "Action: Shift %d\n" nexts;
                 (* Only on a shift do we actually take the lexeme off *)
                 ignore(Queue.take temp_lexemes);
                 (* Push the current terminal (as AST), and next state *)
+                Util.dbg2 "Shifting AST:\n%a" ast_print (acfg.terminal_action
+                  nextlx);
                 do_nextstate (nexts::(s::sts))
                              ((acfg.terminal_action nextlx)::asts)
               end
@@ -710,7 +712,12 @@ let simulate acfg do_action do_goto _do_fail lexemes =
                   let prd = acfg.productions.(prod_i) in
                   let arity = List.length prd.rhs in
                   let goto_from_st = List.nth (s::sts) arity in begin
-                    Util.dbg "Action: Reduce [%d]\n" prod_i;
+                    Util.dbg2 "Action: Reduce [%d]\n" prod_i;
+                    Util.dbg2 "Reducing ASTs:\n%a"
+                      (List.print ~first:"\n" ~last:"\n" ~sep:"\n" ast_print)
+                      (List.rev (List.take arity asts));
+                    Util.dbg2 "Reduced to AST:\n%a" ast_print
+                      (prd.semantic_action (List.rev (List.take arity asts)));
                     do_nextstate
                       (* Pop a number of states equal to the arity of
                        * the production, then push the goto value. *)
