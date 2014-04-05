@@ -255,7 +255,7 @@ let haskell_acfg = {
              and asmodid = List.at asts 4
              and impspec = List.at asts 5 in
              do_bounds asts (Ast0_topdecl_import (Some qualified,
-               modid, Some as_kwd, Some asmodid, Some impspec)))
+               modid, Some (as_kwd, asmodid), Some impspec)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId ];
@@ -266,7 +266,7 @@ let haskell_acfg = {
              and as_kwd = List.at asts 3
              and asmodid = List.at asts 4 in
              do_bounds asts (Ast0_topdecl_import (Some qualified,
-               modid, Some as_kwd, Some asmodid, None)))
+               modid, Some (as_kwd, asmodid), None)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; NT NTimpspec ];
@@ -276,7 +276,7 @@ let haskell_acfg = {
              and modid = List.at asts 2
              and impspec = List.at asts 3 in
              do_bounds asts (Ast0_topdecl_import (Some qualified,
-               modid, None, None, Some impspec)))
+               modid, None, Some impspec)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId ];
@@ -285,7 +285,7 @@ let haskell_acfg = {
              let qualified = List.at asts 1
              and modid = List.at asts 2 in
              do_bounds asts (Ast0_topdecl_import (Some qualified,
-               modid, None, None, None)))
+               modid, None, None)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; T VarId; T ConId; NT NTimpspec ];
@@ -296,7 +296,7 @@ let haskell_acfg = {
              and asmodid = List.at asts 3
              and impspec = List.at asts 4 in
              do_bounds asts (Ast0_topdecl_import (None,
-               modid, Some as_kwd, Some asmodid, Some impspec)))
+               modid, Some (as_kwd, asmodid), Some impspec)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; T VarId; T ConId ];
@@ -306,7 +306,7 @@ let haskell_acfg = {
              and as_kwd = List.at asts 2
              and asmodid = List.at asts 3 in
              do_bounds asts (Ast0_topdecl_import (None,
-               modid, Some as_kwd, Some asmodid, None)))
+               modid, Some (as_kwd, asmodid), None)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId; NT NTimpspec ];
@@ -315,7 +315,7 @@ let haskell_acfg = {
              let modid = List.at asts 1
              and impspec = List.at asts 2 in
              do_bounds asts (Ast0_topdecl_import (None,
-               modid, None, None, Some impspec)))
+               modid, None, Some impspec)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T ConId ];
@@ -323,7 +323,7 @@ let haskell_acfg = {
            (fun asts ->
              let modid = List.at asts 1 in
              do_bounds asts (Ast0_topdecl_import (None,
-               modid, None, None, None)))
+               modid, None, None)))
        };
        { lhs = NTimpspec;
          rhs = [ T VarId; T LParen; T RParen ];

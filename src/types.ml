@@ -213,7 +213,7 @@ and ast0node =
    * later. *)
   (* [qualified-kwd] modid [as-kwd] [as-modid] [impspec] *)
   | Ast0_topdecl_import of
-    ast0 option * ast0 * ast0 option * ast0 option * ast0 option
+    ast0 option * ast0 * (ast0 * ast0) option * ast0 option
   (* [hiding-kwd] import* *)
   | Ast0_impspec of ast0 option * ast0 list
   (* qvar *)
