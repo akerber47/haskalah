@@ -191,7 +191,8 @@ type ast0 = {
 
 and ast0node =
   (* Comment above each AST node says what sort of children it *should* have.
-   * No type system guarantees. *)
+   * No type system guarantees. Anything that doesn't appear as a variant here
+   * (eg modid, qvar, etc) is a kind of leaf. *)
   (* Note that ALL nonterminals that can at most have a single child ast (eg
    * qop) will be "condensed" into that child (so semantic action just passes
    * it along) *)
@@ -234,8 +235,6 @@ and ast0node =
   | Ast0_topdecl_default of ast0 list
   (* decl *)
   | Ast0_topdecl_decl of ast0
-  (* gendecl *)
-  | Ast0_decl_general of ast0
   (* infixpat rhs *)
   | Ast0_decl_eq of ast0 * ast0
   (* var* type *)

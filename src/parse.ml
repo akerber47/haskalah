@@ -120,7 +120,8 @@ let backquote_action asts =
  * * patterns parsed as expressions
  * * function / pattern left-hand sides of expressions parsed as general
  *     expressions (no distinguished variable / op)
- * * vars parsed as qvars
+ * * many specific leaves parsed as more general leaves (eg we accept qvar
+ *   instead of just var, etc.)
  * * import/export decls do not distinguish classes from data constructors
  * * contexts parsed as types
  * * import decls parsed as top-level decls
