@@ -774,7 +774,7 @@ let haskell_acfg = {
          rhs = [ NT NTqconid ];
          semantic_action =
            (fun asts ->
-             let c = List.at asts 1 in
+             let c = List.hd asts in
              do_bounds asts (Ast0_gtycon_con c))
        };
        { lhs = NTgtycon;
@@ -1238,7 +1238,7 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let e1 = List.at asts 1
-             and e3 = List.at asts 5 in
+             and e3 = List.at asts 3 in
              do_bounds asts (Ast0_aexp_seq (e1, None, Some e3)))
        };
        { lhs = NTaexp;
