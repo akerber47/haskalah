@@ -674,7 +674,7 @@ type aug_grammar = {
   terminal_action : (lexeme -> ast);
 }
 
-let simulate acfg do_action do_goto _do_fail lexemes =
+let simulate acfg do_action do_goto do_fail lexemes =
   Util.dbg "Starting simulation of lexeme queue %a\n"
     (Queue.print ~first:"\n[ " ~sep:"\n  " ~last:" ]\n" lx_print) lexemes;
   (* Don't modify input queue *)
@@ -746,8 +746,8 @@ let simulate acfg do_action do_goto _do_fail lexemes =
                     prd.semantic_action (List.rev asts)
                   end
             with
-            | (Failure _) -> (* do_fail nextlx *) raise (Parse_error
-                (Printf.sprintf2 "Syntax error at %a" lx_print nextlx))
+            | (Failure _) ->
+                do_fail nextlx
       end
   (* Start in state 0 *)
   in do_nextstate [0] []

@@ -1641,7 +1641,7 @@ let haskell_acfg = {
 let parse lxq =
   simulate haskell_acfg Computed_actions_gotos.computed_do_action
     Computed_actions_gotos.computed_do_goto
-    (fun lx -> failwith
-      (Printf.sprintf2 "Syntax error at %a" Print.lexeme_print lx))
+    (fun lx -> raise (Parse_error
+      (Printf.sprintf2 "Syntax error at %a" Print.lexeme_print lx)))
     lxq
 ;;
