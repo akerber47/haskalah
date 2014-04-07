@@ -235,8 +235,8 @@ and ast0node =
   | Ast0_topdecl_default of ast0 list
   (* decl *)
   | Ast0_topdecl_decl of ast0
-  (* infixpat rhs *)
-  | Ast0_decl_eq of ast0 * ast0
+  (* infixexp rhs *)
+  | Ast0_decl_bind of ast0 * ast0
   (* var* type *)
   | Ast0_decl_type of ast0 list * ast0
   (* fixity [integer] op* *)
@@ -244,9 +244,9 @@ and ast0node =
   (* *)
   | Ast0_decl_empty
   (* btype type *)
-  | Ast0_type_implies of ast0 * ast0
+  | Ast0_type_context of ast0 * ast0
   (* btype type *)
-  | Ast0_type_mapsto of ast0 * ast0
+  | Ast0_type_fun of ast0 * ast0
   (* btype *)
   | Ast0_type_btype of ast0
   (* btype atype *)

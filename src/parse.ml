@@ -625,7 +625,7 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.hd asts
              and rhs = List.at asts 1 in
-             do_bounds asts (Ast0_decl_eq (lhs, rhs)))
+             do_bounds asts (Ast0_decl_bind (lhs, rhs)))
        };
        { lhs = NTgendecl;
          rhs = [];
@@ -702,7 +702,7 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.hd asts
              and rhs = List.at asts 2 in
-             do_bounds asts (Ast0_type_mapsto (lhs, rhs)))
+             do_bounds asts (Ast0_type_fun (lhs, rhs)))
        };
        { lhs = NTtype;
          rhs = [ NT NTbtype; T REqualsRArrow; NT NTtype ];
@@ -710,7 +710,7 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.hd asts
              and rhs = List.at asts 2 in
-             do_bounds asts (Ast0_type_implies (lhs, rhs)))
+             do_bounds asts (Ast0_type_context (lhs, rhs)))
        };
        { lhs = NTtype;
          rhs = [ NT NTbtype ];
