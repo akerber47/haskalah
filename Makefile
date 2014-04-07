@@ -11,7 +11,7 @@ DEBUG_FLAGS = `ocamlfind query -recursive -i-format batteries`
 DEBUG_FLAGS += `ocamlfind query -recursive -i-format oUnit`
 DEBUG_FLAGS += -I src -I test -I _build/src -I _build/test
 
-.PHONY: all clean debug test-debug parse-gen
+.PHONY: all clean really-clean debug test-debug parse-gen
 all: $(TARGETS)
 
 debug: all
@@ -37,6 +37,9 @@ $(OCAML_TARGETS) $(OCAML.byte_TARGETS): parse-gen
 clean:
 	$(RM) $(TARGETS)
 	ocamlbuild -clean -classic-display
+
+really-clean: clean
+	$(RM) src/computed_actions_gotos.ml
 
 parse-gen: src/computed_actions_gotos.ml
 
