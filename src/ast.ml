@@ -41,14 +41,13 @@ let rec ast0_general_foldl_helper pref postf depth acc ast =
     | Ast0_topdecl_instance (None,a2,a3,a4s) -> a2::(a3::a4s)
     | Ast0_topdecl_default a1s -> a1s
     | Ast0_topdecl_decl a1 -> [a1]
-    | Ast0_decl_general a1 -> [a1]
-    | Ast0_decl_eq (a1,a2) -> [a1;a2]
+    | Ast0_decl_bind (a1,a2) -> [a1;a2]
     | Ast0_decl_type (a1s,a2) -> a1s @ [a2]
     | Ast0_decl_fixity (a1,Some a2,a3s) -> a1::(a2::a3s)
     | Ast0_decl_fixity (a1,None,a3s) -> a1::a3s
     | Ast0_decl_empty -> []
-    | Ast0_type_implies (a1,a2) -> [a1;a2]
-    | Ast0_type_mapsto (a1,a2) -> [a1;a2]
+    | Ast0_type_context (a1,a2) -> [a1;a2]
+    | Ast0_type_fun (a1,a2) -> [a1;a2]
     | Ast0_type_btype a1 -> [a1]
     | Ast0_btype_app (a1,a2) -> [a1;a2]
     | Ast0_btype_atype a1 -> [a1]
