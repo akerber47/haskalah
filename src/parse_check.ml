@@ -3,8 +3,111 @@ open Batteries
 open Types
 ;;
 
-let rec 
+(* Take in an Ast0_type_*, and verify that it has either a valid context or no
+ * context at all. Return ( Ast1_context option, Ast1_type_* ) *)
+let rec check_context ast =
+  (* Take in an Ast0_btype_*, and verify that it *is* a valid context. Convert
+   * it to an Ast1_context, error otherwise. *)
+  let rec check_iscontext ast =
+    match ast.node with
+    (* Application of class constructor - context can only consist of a single
+     * class. *)
+    | Ast0_btype_app _ ->
+        { node1 = Ast1_context [check_isclass ast];
+          blockstart1 = ast.blockstart; blockend1 = ast.blockend }
+    | Ast0_btype_atype a1 ->
+        match a1.node with
+        (* Tuple type - convert to multi-class context *)
+        | Ast0_atype_tuple a1s ->
+            { node1 = Ast1_context (List.map check_typeisclass a1s);
+              blockstart1 = ast.blockstart; blockend1 = ast.blockend }
+        (* Paren type - convert to single-class context *)
+        | Ast0_atype_paren a1
+            { node1 = Ast1_context (check_typeisclass a1);
+              blockstart1 = ast.blockstart; blockend1 = ast.blockend }
+        (* Otherwise, cannot appear as context *)
+        | _ ->
+          raise Parse_error (Printf.sprintf2
+            "Illegal context: at %d-%d\n"
+            ast.blockstart ast.blockend)
+  (* Take in an Ast0_btype_*, and verify that it *is* a valid class constraint
+   * in a context - ie, it consists of a qconid applied to either a qvarid or
+   * (qvarid applied to some types) *)
+  and check_isclass ast =
+    match ast.node with
+    (* Make sure that class constraint is a 1-param application, and that lhs
+     * of application is just a qconid *)
+    | Ast0_btype_app ({
+        node = Ast0_btype_atype {
+          node = Ast0_atype_gtycon {
+            node = Ast0_gtycon_con c}}
+        },a2) ->
+          check_isclassrhs c a2
+    | _ ->
+        raise Parse_error (Printf.sprintf2
+          "Illegal context: at %d-%d\n"
+          ast.blockstart ast.blockend)
+  (* Take in an Ast0_type_*, and call check_isclass on the underlying btype
+   * (error if it's more complicated than that) *)
+  and check_typeisclass ast =
+    match ast.node with
+    | Ast0_type_btype a1 -> check_isclass a1
+    | _ ->
+        raise Parse_error (Printf.sprintf2
+          "Illegal context: at %d-%d\n"
+          ast.blockstart ast.blockend)
+  (* Take in an Ast0_leaf - to make the lhs of Ast1_class_* - and Ast0_atype_*
+   * - to make the rhs - and check that the rhs is valid rhs of class
+   * constraint. *)
+  and check_isclassrhs c ast =
+    match ast.node with
+    (* If rhs is just a var, easy *)
+    | Ast0_atype_var a1 ->
+        Ast1_class_var (postparse_check c) (postparse_check a1)
+    (* Otherwise, if parenthetical, we need to traverse the corresponding btype
+     * (converting it to list of atypes) to check that the leftmost thing being
+     * applied is a var *)
+    | Ast0_atype_paren { node = Ast0_type_btype a1 } ->
+        let atypes =
+          let rec go bt acc =
+            match bt with
+            | Ast0_btype_atype a = (a::acc)
+            | Ast0_btype_app b a = go b (a::acc)
+            | _ -> assert false
+          in go a1 []
+        in
+        match atypes with
+        (* If so, build applied class constraint *)
+        | (Ast0_atype_var a1)::a2s ->
+            Ast1_class_app (postparse_check c) (postparse_check a1)
+              (List.map postparse_check a2s)
+        | _ ->
+            raise Parse_error (Printf.sprintf2
+              "Illegal context: at %d-%d\n"
+              ast.blockstart ast.blockend)
+    | _ ->
+        raise Parse_error (Printf.sprintf2
+          "Illegal context: at %d-%d\n"
+          ast.blockstart ast.blockend)
+  in
+  match ast.node with
+  (* Our grammar is written with arrows in types (-> or =>) having the lowest
+   * precedence - and individual arrows just appear left to right. So we only
+   * need to check the leftmost arrow. *)
+  (*If it's a function (->), we know that
+   * there cannot be a context (context cannot be a function type at top-level,
+   * need an intervening class constructor). So just convert the ast. *)
+  | Ast0_type_fun _
+  (* Similarly if there are no arrows at all *)
+  | Ast0_type_btype _ ->
+      (None, postparse_check ast)
+  (* If it's a context (=>), verify that the lhs is a context, and convert the
+   * rhs ast. *)
+  | Ast0_type_context (a1,a2) ->
+      (Some (check_iscontext a1), postparse_check a2)
+  | _ -> assert false
 
+(* Take in a (general) ast, and do context and pattern checks appropriately. *)
 and postparse_check ast =
   (* Variants that actually require transformations at the top. All other
    * variants (we just convert directly from ast0 to ast1) listed after. *)
@@ -38,6 +141,12 @@ and postparse_check ast =
   | Ast0_aexp_wildpat ->
       raise Parse_error (Printf.sprintf2
         "Expected expression, got pattern: at %d-%d\n" ast.blockstart
+        ast.blockend)
+  (* Similarly, this *cannot* appear in a general type - only as child of
+   * context-allowing type decl / typed exp. So error. *)
+  | Ast0_type_context _ ->
+      raise Parse_error (Printf.sprintf2
+        "Unexpected type context: at %d-%d\n" ast.blockstart
         ast.blockend)
   (* All of the following: directly convert ast0 to ast1 *)
   | Ast0_module (oa1, oa2s, a3) ->
@@ -80,8 +189,6 @@ and postparse_check ast =
       Ast1_decl_fixity (postparse_check a1,Option.map postparse_check oa2,List.map postparse_check a3s)
   | Ast0_decl_empty ->
       Ast1_decl_empty
-  | Ast0_type_context (a1,a2) ->
-      Ast1_type_context (postparse_check a1,postparse_check a2)
   | Ast0_type_fun (a1,a2) ->
       Ast1_type_fun (postparse_check a1,postparse_check a2)
   | Ast0_type_btype a1 ->
