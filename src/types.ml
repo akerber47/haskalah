@@ -403,6 +403,157 @@ and ast0node =
    * copied out by higher-level node once list is complete. *)
   | Ast0_partial_list of ast0 list
 
+(* Output of parse_check. Same as ast0 except where indicated. *)
+type ast1 = {
+  node : ast1node;
+  blockstart : int;
+  blockend   : int;
+}
+and ast1node =
+  | Ast1_module of ast1 option * (ast1 list) option * ast1
+  | Ast1_body of ast1 list
+  | Ast1_export_var of ast1
+  | Ast1_export_type of ast1 * (ast1 list) option
+  | Ast1_export_module of ast1
+  | Ast1_topdecl_import of
+    ast1 option * ast1 * (ast1 * ast1) option * ast1 option
+  | Ast1_impspec of ast1 option * ast1 list
+  | Ast1_import_var of ast1
+  | Ast1_import_type of ast1 * (ast1 list) option
+  | Ast1_topdecl_type of ast1 * ast1
+  | Ast1_topdecl_data of ast1 * ast1 list * ast1 option
+  | Ast1_topdecl_newtype of ast1 * ast1 * ast1 option
+  | Ast1_topdecl_class of ast1 option * ast1 * ast1 * ast1 list
+  | Ast1_topdecl_instance of ast1 option * ast1 * ast1 * ast1 list
+  | Ast1_topdecl_default of ast1 list
+  | Ast1_topdecl_decl of ast1
+  (* Can now recognize patterns! And distinguish lhs of pattern binding vs lhs
+   * of function binding. *)
+  (* funlhs rhs *)
+  | Ast1_decl_funbind of ast1 * ast1
+  (* infixpat rhs *)
+  | Ast1_decl_patbind of ast1 * ast1
+  (* var* [context] type *)
+  | Ast1_decl_type of ast1 list * ast1 option * ast1
+  | Ast1_decl_fixity of ast1 * ast1 option * ast1 list
+  | Ast1_decl_empty
+  (* var apat* *)
+  | Ast1_funlhs_fun of ast1 * ast1 list
+  (* infixpat varop infixpat *)
+  | Ast1_funlhs_funop of ast1 * ast1 * ast1
+  (* funlhs apat* *)
+  | Ast1_funlhs_nested of ast1 * ast1 list
+  (* class* *)
+  | Ast1_context of ast1 list
+  (* qtycls tyvar *)
+  | Ast1_class_var of ast1 * ast1
+  (* qtycls tyvar atype* *)
+  | Ast1_class_app of ast1 * ast1 * ast1 list
+  (* No Ast1_type_context - can now recognize contexts from types! *)
+  | Ast1_type_fun of ast1 * ast1
+  | Ast1_type_btype of ast1
+  | Ast1_btype_app of ast1 * ast1
+  | Ast1_btype_atype of ast1
+  | Ast1_atype_con of ast1
+  | Ast1_atype_var of ast1
+  | Ast1_atype_tuple of ast1 list
+  | Ast1_atype_list of ast1
+  | Ast1_atype_paren of ast1
+  | Ast1_gtycon_con of ast1
+  | Ast1_gtycon_unit
+  | Ast1_gtycon_list
+  | Ast1_gtycon_fun
+  | Ast1_gtycon_tuple of ast1 list
+  | Ast1_scontext of ast1 list
+  | Ast1_simpleclass of ast1 * ast1
+  | Ast1_simpletype of ast1 * ast1 list
+  | Ast1_constr_con of ast1
+  | Ast1_constr_conop of ast1 * ast1 * ast1
+  | Ast1_constr_fields of ast1 * ast1 list
+  | Ast1_newconstr_con of ast1 * ast1
+  | Ast1_newconstr_field of ast1 * ast1 * ast1
+  | Ast1_fielddecl of ast1 list * ast1
+  | Ast1_deriving of ast1 list
+  | Ast1_inst_con of ast1
+  | Ast1_inst_app of ast1 * ast1 list
+  | Ast1_inst_tuple of ast1 list
+  | Ast1_inst_list of ast1
+  | Ast1_inst_fun of ast1 * ast1
+  | Ast1_rhs_eq of ast1 * (ast1 list) option
+  | Ast1_rhs_guard of ast1 list * (ast1 list) option
+  | Ast1_gdrhs of ast1 * ast1
+  (* infixexp [[context] type] *)
+  | Ast1_exp of ast1 * (ast1 option * ast1) option
+  | Ast1_infixexp_op of ast1 * ast1 * ast1
+  | Ast1_infixexp_exp10 of ast1
+  | Ast1_exp10_lambda of ast1 list * ast1
+  | Ast1_exp10_let of ast1 list * ast1
+  | Ast1_exp10_if of ast1 * ast1 * ast1
+  | Ast1_exp10_case of ast1 * ast1 list
+  | Ast1_exp10_do of ast1 list
+  | Ast1_exp10_aexps of ast1 list
+  | Ast1_aexp_var of ast1
+  | Ast1_aexp_con of ast1
+  | Ast1_aexp_literal of ast1
+  | Ast1_aexp_paren of ast1
+  | Ast1_aexp_tuple of ast1 list
+  | Ast1_aexp_list of ast1 list
+  | Ast1_aexp_seq of ast1 * ast1 option * ast1 option
+  | Ast1_aexp_comp of ast1 * ast1 list
+  | Ast1_aexp_lsec of ast1 * ast1
+  | Ast1_aexp_rsec of ast1 * ast1
+  | Ast1_aexp_lbupdate of ast1 * ast1 list
+  (* No Ast1_aexp_aspat,irrefpat,wildpat - patterns have been separated from
+   * general (rhs) expressions. *)
+  | Ast1_qual_assign of ast1 * ast1
+  | Ast1_qual_let of ast1 list
+  | Ast1_qual_guard of ast1
+  | Ast1_alt_match of ast1 * ast1 * (ast1 list) option
+  | Ast1_alt_guard of ast1 * ast1 list * (ast1 list) option
+  | Ast1_gdpat of ast1 * ast1
+  | Ast1_stmt_exp of ast1
+  | Ast1_stmt_assign of ast1 * ast1
+  | Ast1_stmt_let of ast1 list
+  | Ast1_stmt_empty
+  | Ast1_fbind of ast1 * ast1
+  (* pat10 qconop infixpat *)
+  | Ast1_infixpat_op of ast1 * ast1 * ast1
+  (* pat10 *)
+  | Ast1_infixpat_pat10 of ast1
+  (* gcon apat* *)
+  | Ast1_pat10_con of ast1 * ast1 list
+  (* apat *)
+  | Ast1_pat10_apat of ast1
+  (* var *)
+  | Ast1_apat_var of ast1
+  (* var apat *)
+  | Ast1_apat_as of ast1 * ast1
+  (* gcon *)
+  | Ast1_apat_con of ast1
+  (* qcon fpat* *)
+  | Ast1_apat_lbpat of ast1 * ast1 list
+  (* literal *)
+  | Ast1_apat_literal of ast1
+  | Ast1_apat_wild
+  (* pat *)
+  | Ast1_apat_paren of ast1
+  (* pat* *)
+  | Ast1_apat_tuple of ast1 list
+  (* pat* *)
+  | Ast1_apat_list of ast1 list
+  (* apat *)
+  | Ast1_apat_irref of ast1
+  (* qvar pat *)
+  | Ast1_fpat of ast1 * ast1
+  | Ast1_gcon_unit
+  | Ast1_gcon_list
+  | Ast1_gcon_tuple of ast1 list
+  | Ast1_gcon_qcon of ast1
+  | Ast1_parenthesized_leaf of lexeme
+  | Ast1_backquoted_leaf of lexeme
+  | Ast1_leaf of lexeme
+  (* No Ast1_partial_list - ast is already fully built *)
+
 (* Lex error: index in input string where it occurred, and error message. *)
 exception Lex_error of int * string
 ;;
