@@ -105,9 +105,10 @@ let backquote_action asts =
  * https://ghc.haskell.org/trac/haskell-prime/wiki/NoDatatypeContexts
  * No n+k patterns (made in Haskell 2010)
  * https://ghc.haskell.org/trac/haskell-prime/wiki/NoNPlusKPatterns
- * Fixity resolution is later (made in Haskell 2010). We also handle unary
- * negation at that point.
- * https://ghc.haskell.org/trac/haskell-prime/wiki/FixityResolution *)
+ * Fixity resolution is later (made in Haskell 2010).
+ * https://ghc.haskell.org/trac/haskell-prime/wiki/FixityResolution
+ * Unlike the above proposed fixity resolution, we simply don't handle unary
+ * negation. Use 0 - i if you love negating so much. *)
 
 (* We also don't handle strict (!) fields, because having special grammar
  * symbols for things that are neither reserved operators nor special

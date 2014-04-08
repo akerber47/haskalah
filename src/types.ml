@@ -486,6 +486,7 @@ and ast1node =
   | Ast1_exp of ast1 * (ast1 option * ast1) option
   | Ast1_infixexp_op of ast1 * ast1 * ast1
   | Ast1_infixexp_exp10 of ast1
+  (* apat* exp - was aexp* exp *)
   | Ast1_exp10_lambda of ast1 list * ast1
   | Ast1_exp10_let of ast1 list * ast1
   | Ast1_exp10_if of ast1 * ast1 * ast1
@@ -505,13 +506,17 @@ and ast1node =
   | Ast1_aexp_lbupdate of ast1 * ast1 list
   (* No Ast1_aexp_aspat,irrefpat,wildpat - patterns have been separated from
    * general (rhs) expressions. *)
+  (* pat exp - was exp exp *)
   | Ast1_qual_assign of ast1 * ast1
   | Ast1_qual_let of ast1 list
   | Ast1_qual_guard of ast1
+  (* pat exp [decl*] - was exp exp [decl*] *)
   | Ast1_alt_match of ast1 * ast1 * (ast1 list) option
+  (* pat gdpat* [decl*] - was exp gdpat* [decl*] *)
   | Ast1_alt_guard of ast1 * ast1 list * (ast1 list) option
   | Ast1_gdpat of ast1 * ast1
   | Ast1_stmt_exp of ast1
+  (* pat exp - was exp exp *)
   | Ast1_stmt_assign of ast1 * ast1
   | Ast1_stmt_let of ast1 list
   | Ast1_stmt_empty
