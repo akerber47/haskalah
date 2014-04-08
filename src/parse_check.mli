@@ -8,4 +8,4 @@ open Types
  * * patterns appear where required, and are grammatically correct
  *   (simultaneously, we convert exp -> pat where appropriate)
  * We store these changes in a new AST format. *)
-val postparse_check : ast0 -> ast0
+val postparse_check : ast0 -> ast1
