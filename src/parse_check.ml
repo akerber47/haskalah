@@ -3,8 +3,13 @@ open Batteries
 open Types
 ;;
 
-(* Take in an Ast0_type_*, and verify that it has either a valid context or no
- * context at all. Return ( Ast1_context option, Ast1_type_* ) *)
+(* Take in ast0 and ast1node, copies the bounds over. *)
+let do_bound a0 a1node =
+  { node1 = a1node; blockstart1 = a0.blockstart; blockend1 = a0.blockend }
+;;
+
+(* Take in an ast Ast0_type_*, and verify that it has either a valid context or no
+ * context at all. Return ( ast Ast1_context option, ast Ast1_type_* ) *)
 let rec check_context ast =
   (* Take in an Ast0_btype_*, and verify that it *is* a valid context. Convert
    * it to an Ast1_context, error otherwise. *)
@@ -13,18 +18,15 @@ let rec check_context ast =
     (* Application of class constructor - context can only consist of a single
      * class. *)
     | Ast0_btype_app _ ->
-        { node1 = Ast1_context [check_isclass ast];
-          blockstart1 = ast.blockstart; blockend1 = ast.blockend }
+        do_bound ast (Ast1_context [check_isclass ast])
     | Ast0_btype_atype a1 ->
         match a1.node with
         (* Tuple type - convert to multi-class context *)
         | Ast0_atype_tuple a1s ->
-            { node1 = Ast1_context (List.map check_typeisclass a1s);
-              blockstart1 = ast.blockstart; blockend1 = ast.blockend }
+            do_bound ast (Ast1_context (List.map check_typeisclass a1s))
         (* Paren type - convert to single-class context *)
         | Ast0_atype_paren a1
-            { node1 = Ast1_context (check_typeisclass a1);
-              blockstart1 = ast.blockstart; blockend1 = ast.blockend }
+            do_bound ast (Ast1_context (check_typeisclass a1))
         (* Otherwise, cannot appear as context *)
         | _ ->
           raise Parse_error (Printf.sprintf2
@@ -63,7 +65,7 @@ let rec check_context ast =
     match ast.node with
     (* If rhs is just a var, easy *)
     | Ast0_atype_var a1 ->
-        Ast1_class_var (postparse_check c) (postparse_check a1)
+        do_bound ast (Ast1_class_var (postparse_check c, postparse_check a1))
     (* Otherwise, if parenthetical, we need to traverse the corresponding btype
      * (converting it to list of atypes) to check that the leftmost thing being
      * applied is a var *)
@@ -72,15 +74,15 @@ let rec check_context ast =
           let rec go bt acc =
             match bt with
             | Ast0_btype_atype a = (a::acc)
-            | Ast0_btype_app b a = go b (a::acc)
+            | Ast0_btype_app (b,a) = go b (a::acc)
             | _ -> assert false
           in go a1 []
         in
         match atypes with
         (* If so, build applied class constraint *)
         | (Ast0_atype_var a1)::a2s ->
-            Ast1_class_app (postparse_check c) (postparse_check a1)
-              (List.map postparse_check a2s)
+            do_bound ast (Ast1_class_app (postparse_check c,
+              postparse_check a1, (List.map postparse_check a2s)))
         | _ ->
             raise Parse_error (Printf.sprintf2
               "Illegal context: at %d-%d\n"
