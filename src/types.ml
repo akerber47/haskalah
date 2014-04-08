@@ -405,9 +405,9 @@ and ast0node =
 
 (* Output of parse_check. Same as ast0 except where indicated. *)
 type ast1 = {
-  node : ast1node;
-  blockstart : int;
-  blockend   : int;
+  node1 : ast1node;
+  blockstart1 : int;
+  blockend1   : int;
 }
 and ast1node =
   | Ast1_module of ast1 option * (ast1 list) option * ast1
