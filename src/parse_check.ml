@@ -111,11 +111,86 @@ let rec check_context ast =
       (Some (check_iscontext a1), postparse_check a2)
   | _ -> assert false
 
+(* Take in an Ast0_exp_*, Ast0_infixexp_*, Ast0_exp10_*, or Ast0_aexp_*, and
+ * verify that it is a valid pattern.  Return Ast1_pat_*, or (etc), modifying
+ * all children accordingly. *)
+and check_pat ast =
+  let newnode = match ast.node with
+  (* First, the valid cases. *)
+  (* Convert exps -> pats *)
+  (* Patterns cannot have type decls - (a1, Some _) is error. *)
+  | Ast0_exp (a1, None) ->
+      Ast1_pat (check_pat a1)
+  (* infixexps -> infixpats *)
+  | Ast0_infixexp_op (a1,a2,a3) ->
+      (* Check that operator is qconop - qvarop is error *)
+      match a2.node with
+      | Ast0_backquoted_leaf { token = QConId }
+      | Ast0_backquoted_leaf { token = ConId }
+      | Ast0_leaf { token = QConSym }
+      | Ast0_leaf { token = ConSym }
+      | Ast0_leaf { token = RColon } ->
+          Ast1_infixpat_op (check_pat a1, a2, check_pat a3)
+      | _ ->
+          raise Parse_error (Printf.sprintf2
+            "Expected pattern, got expression: at %d-%d\n"
+            ast.blockstart ast.blockend)
+  (* exp10s -> pat10s *)
+  | Ast0_infixexp_exp10 a1 ->
+      Ast1_infixpat_pat10 (check_pat a1)
+  (* A single pattern is fine ... *)
+  | Ast0_exp10_aexps (a1::[]) ->
+      Ast1_pat10_apat (check_pat a1)
+  (* ... but can only apply one pattern to others if it's a constructor *)
+  | Ast0_exp10_aexps ({ node = Ast0_aexp_con a1 }::a2s) ->
+      Ast1_pat10_con (a1, List.map check_pat a2s)
+  (* Convert aexps to apats *)
+  | Ast0_aexp_var a1 ->
+      Ast1_apat_var a1
+  | Ast0_aexp_con a1 ->
+      Ast1_apat_con a1
+  | Ast0_aexp_literal a1 ->
+      Ast1_apat_literal a1
+  | Ast0_aexp_paren a1 ->
+      Ast1_apat_paren (check_pat a1)
+  | Ast0_aexp_tuple a1s ->
+      Ast1_apat_tuple (List.map check_pat a1s)
+  | Ast0_aexp_list a1s ->
+      Ast1_apat_list (List.map check_pat a1s)
+  | Ast0_aexp_lbupdate (a1,a2s) ->
+      (* Check that head is qcon - anything more complex is error *)
+      match a1.node with
+      | Ast0_leaf { token = QConId }
+      | Ast0_leaf { token = ConId }
+      | Ast0_parenthesized_leaf { token = QConSym }
+      | Ast0_parenthesized_leaf { token = ConSym }
+      | Ast0_parenthesized_leaf { token = RColon } ->
+          Ast1_apat_lbpat (a1, List.map check_pat a2s)
+      | _ ->
+          raise Parse_error (Printf.sprintf2
+            "Expected pattern, got expression: at %d-%d\n"
+            ast.blockstart ast.blockend)
+  | Ast0_aexp_aspat (a1,a2) ->
+      Ast1_apat_as (a1, check_pat a2)
+  | Ast0_aexp_irrefpat a1 ->
+      Ast1_apat_irref a1
+  | Ast0_aexp_wildpat ->
+      do_bound ast Ast1_apat_wild
+  (* fbind -> fpat *)
+  | Ast0_fbind (a1,a2) ->
+      Ast1_fpat (a1, check_pat a2)
+  (* Finally, all other cases cannot appear in a pattern - error *)
+  | _ ->
+      raise Parse_error (Printf.sprintf2
+        "Expected pattern, got expression: at %d-%d\n"
+        ast.blockstart ast.blockend)
+  in do_bound ast newnode
+
 (* Take in a (general) ast, and do context and pattern checks appropriately. *)
 and postparse_check ast =
   (* Variants that actually require transformations at the top. All other
    * variants (we just convert directly from ast0 to ast1) listed after. *)
-  match ast.node with
+  let newnode = match ast.node with
   (* Check if bindings are funbind or patbind *)
   | Ast0_decl_bind (a1,a2) ->
       Ast1_decl_bind (check_bind a1,postparse_check a2)
@@ -322,5 +397,5 @@ and postparse_check ast =
   | Ast0_leaf l ->
       Ast1_leaf l
   | Ast0_partial_list _ -> assert false
-  in { node = newnode; blockstart = ast.blockstart; blockend = ast.blockend }
+  in do_bound ast newnode
 ;;
