@@ -521,6 +521,8 @@ and ast1node =
   | Ast1_stmt_let of ast1 list
   | Ast1_stmt_empty
   | Ast1_fbind of ast1 * ast1
+  (* infixpat *)
+  | Ast1_pat of ast1
   (* pat10 qconop infixpat *)
   | Ast1_infixpat_op of ast1 * ast1 * ast1
   (* pat10 *)

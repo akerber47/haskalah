@@ -25,13 +25,14 @@ let rec check_context ast =
         | Ast0_atype_tuple a1s ->
             Ast1_context (List.map check_typeisclass a1s)
         (* Paren type - convert to single-class context *)
-        | Ast0_atype_paren a1
-            Ast1_context (check_typeisclass a1)
+        | Ast0_atype_paren a1 ->
+            Ast1_context [check_typeisclass a1]
         (* Otherwise, cannot appear as context *)
         | _ ->
-          raise Parse_error (Printf.sprintf2
+          raise (Parse_error (Printf.sprintf2
             "Illegal context: at %d-%d\n"
-            ast.blockstart ast.blockend)
+            ast.blockstart ast.blockend))
+    | _ -> assert false
     in do_bound ast newnode
   (* Take in an Ast0_btype_*, and verify that it *is* a valid class constraint
    * in a context - ie, it consists of a qconid applied to either a qvarid or
@@ -42,23 +43,23 @@ let rec check_context ast =
      * of application is just a qconid *)
     | Ast0_btype_app ({
         node = Ast0_btype_atype {
-          node = Ast0_atype_gtycon {
+          node = Ast0_atype_con {
             node = Ast0_gtycon_con c}}
         },a2) ->
           check_isclassrhs c a2
     | _ ->
-        raise Parse_error (Printf.sprintf2
+        raise (Parse_error (Printf.sprintf2
           "Illegal context: at %d-%d\n"
-          ast.blockstart ast.blockend)
+          ast.blockstart ast.blockend))
   (* Take in an Ast0_type_*, and call check_isclass on the underlying btype
    * (error if it's more complicated than that) *)
   and check_typeisclass ast =
     match ast.node with
     | Ast0_type_btype a1 -> check_isclass a1
     | _ ->
-        raise Parse_error (Printf.sprintf2
+        raise (Parse_error (Printf.sprintf2
           "Illegal context: at %d-%d\n"
-          ast.blockstart ast.blockend)
+          ast.blockstart ast.blockend))
   (* Take in an Ast0_leaf - to make the lhs of Ast1_class_* - and Ast0_atype_*
    * - to make the rhs - and check that the rhs is valid rhs of class
    * constraint. *)
@@ -74,24 +75,24 @@ let rec check_context ast =
         let atypes =
           let rec go bt acc =
             match bt with
-            | Ast0_btype_atype a = (a::acc)
-            | Ast0_btype_app (b,a) = go b (a::acc)
+            | Ast0_btype_atype a -> (a::acc)
+            | Ast0_btype_app (b,a) -> go b.node (a::acc)
             | _ -> assert false
-          in go a1 []
+          in go a1.node []
         in
         match atypes with
         (* If so, build applied class constraint *)
-        | (Ast0_atype_var a1)::a2s ->
+        | { node = Ast0_atype_var a1 }::a2s ->
             Ast1_class_app (postparse_check c,
               postparse_check a1, (List.map postparse_check a2s))
         | _ ->
-            raise Parse_error (Printf.sprintf2
+            raise (Parse_error (Printf.sprintf2
               "Illegal context: at %d-%d\n"
-              ast.blockstart ast.blockend)
+              ast.blockstart ast.blockend))
     | _ ->
-        raise Parse_error (Printf.sprintf2
+        raise (Parse_error (Printf.sprintf2
           "Illegal context: at %d-%d\n"
-          ast.blockstart ast.blockend)
+          ast.blockstart ast.blockend))
     in do_bound ast newnode
   in
   match ast.node with
@@ -130,11 +131,11 @@ and check_pat ast =
       | Ast0_leaf { token = QConSym }
       | Ast0_leaf { token = ConSym }
       | Ast0_leaf { token = RColon } ->
-          Ast1_infixpat_op (check_pat a1, a2, check_pat a3)
+          Ast1_infixpat_op (check_pat a1, postparse_check a2, check_pat a3)
       | _ ->
-          raise Parse_error (Printf.sprintf2
+          raise (Parse_error (Printf.sprintf2
             "Expected pattern, got expression: at %d-%d\n"
-            ast.blockstart ast.blockend)
+            ast.blockstart ast.blockend))
   (* exp10s -> pat10s *)
   | Ast0_infixexp_exp10 a1 ->
       Ast1_infixpat_pat10 (check_pat a1)
@@ -143,14 +144,14 @@ and check_pat ast =
       Ast1_pat10_apat (check_pat a1)
   (* ... but can only apply one pattern to others if it's a constructor *)
   | Ast0_exp10_aexps ({ node = Ast0_aexp_con a1 }::a2s) ->
-      Ast1_pat10_con (a1, List.map check_pat a2s)
+      Ast1_pat10_con (postparse_check a1, List.map check_pat a2s)
   (* Convert aexps to apats *)
   | Ast0_aexp_var a1 ->
-      Ast1_apat_var a1
+      Ast1_apat_var (postparse_check a1)
   | Ast0_aexp_con a1 ->
-      Ast1_apat_con a1
+      Ast1_apat_con (postparse_check a1)
   | Ast0_aexp_literal a1 ->
-      Ast1_apat_literal a1
+      Ast1_apat_literal (postparse_check a1)
   | Ast0_aexp_paren a1 ->
       Ast1_apat_paren (check_pat a1)
   | Ast0_aexp_tuple a1s ->
@@ -165,26 +166,28 @@ and check_pat ast =
       | Ast0_parenthesized_leaf { token = QConSym }
       | Ast0_parenthesized_leaf { token = ConSym }
       | Ast0_parenthesized_leaf { token = RColon } ->
-          Ast1_apat_lbpat (a1, List.map check_pat a2s)
+          Ast1_apat_lbpat (postparse_check a1, List.map check_pat a2s)
       | _ ->
-          raise Parse_error (Printf.sprintf2
+          raise (Parse_error (Printf.sprintf2
             "Expected pattern, got expression: at %d-%d\n"
-            ast.blockstart ast.blockend)
+            ast.blockstart ast.blockend))
   | Ast0_aexp_aspat (a1,a2) ->
-      Ast1_apat_as (a1, check_pat a2)
+      Ast1_apat_as (postparse_check a1, check_pat a2)
   | Ast0_aexp_irrefpat a1 ->
-      Ast1_apat_irref a1
+      Ast1_apat_irref (postparse_check a1)
   | Ast0_aexp_wildpat ->
-      do_bound ast Ast1_apat_wild
+      Ast1_apat_wild
   (* fbind -> fpat *)
   | Ast0_fbind (a1,a2) ->
-      Ast1_fpat (a1, check_pat a2)
+      Ast1_fpat (postparse_check a1, check_pat a2)
   (* Finally, all other cases cannot appear in a pattern - error *)
   | _ ->
-      raise Parse_error (Printf.sprintf2
+      raise (Parse_error (Printf.sprintf2
         "Expected pattern, got expression: at %d-%d\n"
-        ast.blockstart ast.blockend)
+        ast.blockstart ast.blockend))
   in do_bound ast newnode
+
+
 
 (* Take in a (general) ast, and do context and pattern checks appropriately. *)
 and postparse_check ast =
@@ -218,15 +221,15 @@ and postparse_check ast =
   | Ast0_aexp_aspat _
   | Ast0_aexp_irrefpat _
   | Ast0_aexp_wildpat ->
-      raise Parse_error (Printf.sprintf2
+      raise (Parse_error (Printf.sprintf2
         "Expected expression, got pattern: at %d-%d\n" ast.blockstart
-        ast.blockend)
+        ast.blockend))
   (* Similarly, this *cannot* appear in a general type - only as child of
    * context-allowing type decl / typed exp. So error. *)
   | Ast0_type_context _ ->
-      raise Parse_error (Printf.sprintf2
+      raise (Parse_error (Printf.sprintf2
         "Unexpected type context: at %d-%d\n" ast.blockstart
-        ast.blockend)
+        ast.blockend))
   (* All of the following: directly convert ast0 to ast1 *)
   | Ast0_module (oa1, oa2s, a3) ->
       Ast1_module (Option.map postparse_check oa1, Option.map (List.map postparse_check) oa2s, postparse_check a3)
