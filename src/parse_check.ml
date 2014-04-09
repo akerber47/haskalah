@@ -14,24 +14,25 @@ let rec check_context ast =
   (* Take in an Ast0_btype_*, and verify that it *is* a valid context. Convert
    * it to an Ast1_context, error otherwise. *)
   let rec check_iscontext ast =
-    match ast.node with
+    let newnode = match ast.node with
     (* Application of class constructor - context can only consist of a single
      * class. *)
     | Ast0_btype_app _ ->
-        do_bound ast (Ast1_context [check_isclass ast])
+        Ast1_context [check_isclass ast]
     | Ast0_btype_atype a1 ->
         match a1.node with
         (* Tuple type - convert to multi-class context *)
         | Ast0_atype_tuple a1s ->
-            do_bound ast (Ast1_context (List.map check_typeisclass a1s))
+            Ast1_context (List.map check_typeisclass a1s)
         (* Paren type - convert to single-class context *)
         | Ast0_atype_paren a1
-            do_bound ast (Ast1_context (check_typeisclass a1))
+            Ast1_context (check_typeisclass a1)
         (* Otherwise, cannot appear as context *)
         | _ ->
           raise Parse_error (Printf.sprintf2
             "Illegal context: at %d-%d\n"
             ast.blockstart ast.blockend)
+    in do_bound ast newnode
   (* Take in an Ast0_btype_*, and verify that it *is* a valid class constraint
    * in a context - ie, it consists of a qconid applied to either a qvarid or
    * (qvarid applied to some types) *)
@@ -62,10 +63,10 @@ let rec check_context ast =
    * - to make the rhs - and check that the rhs is valid rhs of class
    * constraint. *)
   and check_isclassrhs c ast =
-    match ast.node with
+    let newnode = match ast.node with
     (* If rhs is just a var, easy *)
     | Ast0_atype_var a1 ->
-        do_bound ast (Ast1_class_var (postparse_check c, postparse_check a1))
+        Ast1_class_var (postparse_check c, postparse_check a1)
     (* Otherwise, if parenthetical, we need to traverse the corresponding btype
      * (converting it to list of atypes) to check that the leftmost thing being
      * applied is a var *)
@@ -81,8 +82,8 @@ let rec check_context ast =
         match atypes with
         (* If so, build applied class constraint *)
         | (Ast0_atype_var a1)::a2s ->
-            do_bound ast (Ast1_class_app (postparse_check c,
-              postparse_check a1, (List.map postparse_check a2s)))
+            Ast1_class_app (postparse_check c,
+              postparse_check a1, (List.map postparse_check a2s))
         | _ ->
             raise Parse_error (Printf.sprintf2
               "Illegal context: at %d-%d\n"
@@ -91,6 +92,7 @@ let rec check_context ast =
         raise Parse_error (Printf.sprintf2
           "Illegal context: at %d-%d\n"
           ast.blockstart ast.blockend)
+    in do_bound ast newnode
   in
   match ast.node with
   (* Our grammar is written with arrows in types (-> or =>) having the lowest
