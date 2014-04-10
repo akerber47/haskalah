@@ -20,18 +20,18 @@ let rec check_context ast =
     | Ast0_btype_app _ ->
         Ast1_context [check_isclass ast]
     | Ast0_btype_atype a1 ->
-        match a1.node with
-        (* Tuple type - convert to multi-class context *)
-        | Ast0_atype_tuple a1s ->
-            Ast1_context (List.map check_typeisclass a1s)
-        (* Paren type - convert to single-class context *)
-        | Ast0_atype_paren a1 ->
-            Ast1_context [check_typeisclass a1]
-        (* Otherwise, cannot appear as context *)
-        | _ ->
-          raise (Parse_error (Printf.sprintf2
-            "Illegal context: at %d-%d\n"
-            ast.blockstart ast.blockend))
+        (match a1.node with
+         (* Tuple type - convert to multi-class context *)
+         | Ast0_atype_tuple a1s ->
+             Ast1_context (List.map check_typeisclass a1s)
+         (* Paren type - convert to single-class context *)
+         | Ast0_atype_paren a1 ->
+             Ast1_context [check_typeisclass a1]
+         (* Otherwise, cannot appear as context *)
+         | _ ->
+           raise (Parse_error (Printf.sprintf2
+             "Illegal context: at %d-%d\n"
+             ast.blockstart ast.blockend)))
     | _ -> assert false
     in do_boundcpy ast newnode
   (* Take in an Ast0_btype_*, and verify that it *is* a valid class constraint
@@ -125,16 +125,16 @@ and check_if_pat ast =
   (* infixexps -> infixpats *)
   | Ast0_infixexp_op (a1,a2,a3) ->
       (* Check that operator is qconop - qvarop is error *)
-      match a2.node with
-      | Ast0_backquoted_leaf { token = QConId }
-      | Ast0_backquoted_leaf { token = ConId }
-      | Ast0_leaf { token = QConSym }
-      | Ast0_leaf { token = ConSym }
-      | Ast0_leaf { token = RColon } ->
-          match check_if_pat a1, postparse_check a2, check_if_pat a3 with
-          | (Some b1, b2, Some b3) ->
-              Some (Ast1_infixpat_op (b1,b2,b3))
-          | _ -> None
+      (match a2.node with
+       | Ast0_backquoted_leaf { token = QConId }
+       | Ast0_backquoted_leaf { token = ConId }
+       | Ast0_leaf { token = QConSym }
+       | Ast0_leaf { token = ConSym }
+       | Ast0_leaf { token = RColon } ->
+           (match check_if_pat a1, postparse_check a2, check_if_pat a3 with
+            | (Some b1, b2, Some b3) ->
+                Some (Ast1_infixpat_op (b1,b2,b3))
+            | _ -> None))
   (* exp10s -> pat10s *)
   | Ast0_infixexp_exp10 a1 ->
       Option.map (fun a -> Ast1_infixpat_pat10 a) (check_if_pat a1)
@@ -143,9 +143,9 @@ and check_if_pat ast =
       Option.map Ast1_pat10_apat (check_if_pat a1)
   (* ... but can only apply one pattern to others if it's a constructor *)
   | Ast0_exp10_aexps ({ node = Ast0_aexp_con a1 }::a2s) ->
-      match Util.option_mapM (List.map check_if_pat a2s) with
-      | Some b2s -> Some (Ast1_pat10_con (postparse_check a1, b2s))
-      | None -> None
+      (match Util.option_mapM (List.map check_if_pat a2s) with
+       | Some b2s -> Some (Ast1_pat10_con (postparse_check a1, b2s))
+       | None -> None)
   (* Convert aexps to apats *)
   | Ast0_aexp_var a1 ->
       Some (Ast1_apat_var (postparse_check a1))
@@ -163,32 +163,32 @@ and check_if_pat ast =
         (Util.option_mapM (List.map check_if_pat a1s))
   | Ast0_aexp_lbupdate (a1,a2s) ->
       (* Check that head is qcon - anything more complex is error *)
-      match a1.node with
-      | Ast0_leaf { token = QConId }
-      | Ast0_leaf { token = ConId }
-      | Ast0_parenthesized_leaf { token = QConSym }
-      | Ast0_parenthesized_leaf { token = ConSym }
-      | Ast0_parenthesized_leaf { token = RColon } ->
-          match Util.option_mapM (List.map check_if_pat a2s) with
-          | Some b2s -> Ast1_apat_lbpat (postparse_check a1, b2s)
-          | None -> None
-      | _ ->
-          raise (Parse_error (Printf.sprintf2
-            "Expected pattern, got expression: at %d-%d\n"
-            ast.blockstart ast.blockend))
+      (match a1.node with
+       | Ast0_leaf { token = QConId }
+       | Ast0_leaf { token = ConId }
+       | Ast0_parenthesized_leaf { token = QConSym }
+       | Ast0_parenthesized_leaf { token = ConSym }
+       | Ast0_parenthesized_leaf { token = RColon } ->
+           (match Util.option_mapM (List.map check_if_pat a2s) with
+            | Some b2s -> Ast1_apat_lbpat (postparse_check a1, b2s)
+            | None -> None)
+       | _ ->
+           raise (Parse_error (Printf.sprintf2
+             "Expected pattern, got expression: at %d-%d\n"
+             ast.blockstart ast.blockend)))
   | Ast0_aexp_aspat (a1,a2) ->
-      match check_if_pat a2 with
-      | Some b2 -> Ast1_apat_as (postparse_check a1, b2)
-      | None -> None
+      (match check_if_pat a2 with
+       | Some b2 -> Ast1_apat_as (postparse_check a1, b2)
+       | None -> None)
   | Ast0_aexp_irrefpat a1 ->
       Some (Ast1_apat_irref (postparse_check a1))
   | Ast0_aexp_wildpat ->
       Some Ast1_apat_wild
   (* fbind -> fpat *)
   | Ast0_fbind (a1,a2) ->
-      match check_if_pat a2 with
-      | Some b2 -> Ast1_apat_fpat (postparse_check a1, b2)
-      | None -> None
+      (match check_if_pat a2 with
+       | Some b2 -> Ast1_apat_fpat (postparse_check a1, b2)
+       | None -> None)
   (* Finally, all other cases cannot appear in a pattern - fail *)
   | _ -> None
   in
@@ -261,14 +261,14 @@ and check_bind ast rhs =
               rebuild_lhs a0s
                 (Ast.ast0_do_bounds [a2;a1;acc] (Ast0_infixexp_op (a1,a2,acc)))
         in
-        match find_varop [] ast with
-        | Some ((a1::a1s), a2, a3) ->
-            let lhs = rebuild_lhs a1s a1 in
-            do_boundcpy ast (Ast1_funlhs_funop
-              (check_pat lhs, postparse_check a2, check_pat a3))
-        | None -> raise (Parse_error (Printf.sprintf2
-            "Expected function or pattern lhs, got expression: at %d-%d\n"
-            ast.blockstart ast.blockend))
+        (match find_varop [] ast with
+         | Some ((a1::a1s), a2, a3) ->
+             let lhs = rebuild_lhs a1s a1 in
+             do_boundcpy ast (Ast1_funlhs_funop
+               (check_pat lhs, postparse_check a2, check_pat a3))
+         | None -> raise (Parse_error (Printf.sprintf2
+             "Expected function or pattern lhs, got expression: at %d-%d\n"
+             ast.blockstart ast.blockend)))
     | _ -> raise (Parse_error (Printf.sprintf2
         "Expected function or pattern lhs, got expression: at %d-%d\n"
         ast.blockstart ast.blockend))
@@ -302,9 +302,9 @@ and postparse_check ast =
   (* Check that all places with optional contexts have either valid context, or
    * no context at all. *)
   | Ast0_decl_type (a1s,a2) ->
-      match check_context a2 with
-      | ctxt, t ->
-          Ast1_decl_type (List.map postparse_check a1s, ctxt, t)
+      (match check_context a2 with
+       | ctxt, t ->
+           Ast1_decl_type (List.map postparse_check a1s, ctxt, t))
   | Ast0_exp (a1,oa2) ->
       Ast1_exp (postparse_check a1, Option.map check_context oa2)
   (* All of the following *cannot* appear in a general expression - can only
