@@ -4,7 +4,7 @@ open Types
 ;;
 
 (* Take in ast0 and ast1node, copies the bounds over. *)
-let do_bound a0 a1node =
+let do_boundcpy a0 a1node =
   { node1 = a1node; blockstart1 = a0.blockstart; blockend1 = a0.blockend }
 ;;
 
@@ -33,7 +33,7 @@ let rec check_context ast =
             "Illegal context: at %d-%d\n"
             ast.blockstart ast.blockend))
     | _ -> assert false
-    in do_bound ast newnode
+    in do_boundcpy ast newnode
   (* Take in an Ast0_btype_*, and verify that it *is* a valid class constraint
    * in a context - ie, it consists of a qconid applied to either a qvarid or
    * (qvarid applied to some types) *)
@@ -93,7 +93,7 @@ let rec check_context ast =
         raise (Parse_error (Printf.sprintf2
           "Illegal context: at %d-%d\n"
           ast.blockstart ast.blockend))
-    in do_bound ast newnode
+    in do_boundcpy ast newnode
   in
   match ast.node with
   (* Our grammar is written with arrows in types (-> or =>) having the lowest
@@ -196,7 +196,7 @@ and postparse_check ast =
   let newnode = match ast.node with
   (* Check if bindings are funbind or patbind *)
   | Ast0_decl_bind (a1,a2) ->
-      Ast1_decl_bind (check_bind a1,postparse_check a2)
+      check_bind a1 a2
   (* Check that all places where patterns appear are actually patterns *)
   | Ast0_exp10_lambda (a1s,a2) ->
       Ast1_exp10_lambda (List.map check_pat a1s,postparse_check a2)
@@ -400,5 +400,5 @@ and postparse_check ast =
   | Ast0_leaf l ->
       Ast1_leaf l
   | Ast0_partial_list _ -> assert false
-  in do_bound ast newnode
+  in do_boundcpy ast newnode
 ;;
