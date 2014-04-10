@@ -3,6 +3,12 @@ open Batteries
 open Types
 ;;
 
+let ast0_do_bounds child_asts parent_astnode =
+  let min_start = List.min (List.map (fun ast -> ast.blockstart) child_asts)
+  and max_end   = List.max (List.map (fun ast -> ast.blockend) child_asts)
+  in { node = parent_astnode; blockstart = min_start; blockend = max_end; }
+;;
+
 let rec ast0_general_foldl_helper pref postf depth acc ast =
   let acc1 = pref acc ast depth in
   (* Dig through each node struct, and pull out list of children *)

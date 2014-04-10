@@ -2,6 +2,8 @@ open Batteries
 ;;
 open Types
 ;;
+open Ast
+;;
 
 module Haskell_parser_sim = Parser_gen.Make_sim (
   struct
@@ -20,14 +22,6 @@ open Haskell_parser_sim
 ;;
 
 (* Some simple helper functions for our semantic actions. *)
-
-(* Find the start and end block bounds of a given ast node, given those for all
- * its children. Return the parent ast node with the bounds filled in *)
-let do_bounds child_asts parent_astnode =
-  let min_start = List.min (List.map (fun ast -> ast.blockstart) child_asts)
-  and max_end   = List.max (List.map (fun ast -> ast.blockend) child_asts)
-  in { node = parent_astnode; blockstart = min_start; blockend = max_end; }
-;;
 
 (* Cons a given ast onto an Ast0_partial_list. Return the new ast0node. *)
 let ast0cons car_ast cdr_ast =
@@ -58,24 +52,24 @@ let ast0getlist ast =
 let cons_action asts =
   let car_ast = List.hd asts
   and cdr_ast = List.at asts 2 in
-  do_bounds asts (ast0cons car_ast cdr_ast)
+  ast0_do_bounds asts (ast0cons car_ast cdr_ast)
 ;;
 
 (* Same, but with 1st as cdr *)
 let cons_nodelim_action asts =
   let car_ast = List.hd asts
   and cdr_ast = List.at asts 1 in
-  do_bounds asts (ast0cons car_ast cdr_ast)
+  ast0_do_bounds asts (ast0cons car_ast cdr_ast)
 ;;
 
 (* Build a one-element partial list from the 0th input ast *)
 let singleton_action asts =
-  do_bounds asts (Ast0_partial_list [List.hd asts])
+  ast0_do_bounds asts (Ast0_partial_list [List.hd asts])
 ;;
 
 (* Extract the nth input ast and ignore the rest (except for bounds) *)
 let at_action n asts =
-  do_bounds asts ((List.at asts n).node)
+  ast0_do_bounds asts ((List.at asts n).node)
 ;;
 
 (* Extract the 0th input ast, leaving its bounds unmodified. Same as (at_action
@@ -88,7 +82,7 @@ let id_action asts =
 let parenthesize_action asts =
   match (List.hd asts).node with
   | Ast0_leaf l ->
-      do_bounds asts (Ast0_parenthesized_leaf l)
+      ast0_do_bounds asts (Ast0_parenthesized_leaf l)
   | _ -> assert false
 ;;
 
@@ -96,7 +90,7 @@ let parenthesize_action asts =
 let backquote_action asts =
   match (List.hd asts).node with
   | Ast0_leaf l ->
-      do_bounds asts (Ast0_backquoted_leaf l)
+      ast0_do_bounds asts (Ast0_backquoted_leaf l)
   | _ -> assert false
 ;;
 
@@ -157,7 +151,7 @@ let haskell_acfg = {
            (fun asts ->
              let modid = List.at asts 1
              and body = List.at asts 3 in
-             do_bounds asts (Ast0_module (Some modid, None, body)));
+             ast0_do_bounds asts (Ast0_module (Some modid, None, body)));
        };
        { lhs = NTmodule;
          rhs = [ T RModule; T ConId; NT NTexports; T RWhere; NT NTbody ];
@@ -166,7 +160,7 @@ let haskell_acfg = {
              let modid = List.at asts 1
              and exports = List.at asts 3
              and body = List.at asts 4 in
-             do_bounds asts (Ast0_module (Some modid, Some
+             ast0_do_bounds asts (Ast0_module (Some modid, Some
                (ast0getlist exports), body)))
        };
        { lhs = NTmodule;
@@ -174,25 +168,25 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let body = List.at asts 0 in
-             do_bounds asts (Ast0_module (None, None, body)));
+             ast0_do_bounds asts (Ast0_module (None, None, body)));
        };
        { lhs = NTbody;
          rhs = [ T LCurly; NT NTtopdecls; T RCurly ];
          semantic_action =
            (fun asts ->
              let topdecls = List.at asts 1 in
-               do_bounds asts
+               ast0_do_bounds asts
                  (Ast0_body (ast0getlist topdecls)))
        };
        { lhs = NTexports;
          rhs = [ T LParen; T RParen ];
          semantic_action =
-           (fun asts -> do_bounds asts (Ast0_partial_list []))
+           (fun asts -> ast0_do_bounds asts (Ast0_partial_list []))
        };
        { lhs = NTexports;
          rhs = [ T LParen; T Comma; T RParen ];
          semantic_action =
-           (fun asts -> do_bounds asts (Ast0_partial_list []))
+           (fun asts -> ast0_do_bounds asts (Ast0_partial_list []))
        };
        { lhs = NTexports;
          rhs = [ T LParen; NT NTexportlist; T RParen ];
@@ -215,21 +209,21 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let qvar = List.hd asts in
-             do_bounds asts (Ast0_export_var qvar))
+             ast0_do_bounds asts (Ast0_export_var qvar))
        };
        { lhs = NTexport;
          rhs = [ NT NTqconid; T LParen; T RDotDot; T RParen ];
          semantic_action =
            (fun asts ->
              let qtycon = List.hd asts in
-             do_bounds asts (Ast0_export_type (qtycon, None)))
+             ast0_do_bounds asts (Ast0_export_type (qtycon, None)))
        };
        { lhs = NTexport;
          rhs = [ NT NTqconid; T LParen; T RParen ];
          semantic_action =
            (fun asts ->
              let qtycon = List.hd asts in
-             do_bounds asts (Ast0_export_type (qtycon, Some [])))
+             ast0_do_bounds asts (Ast0_export_type (qtycon, Some [])))
        };
        { lhs = NTexport;
          rhs = [ NT NTqconid; T LParen; NT NTqcnamelist; T RParen ];
@@ -237,7 +231,7 @@ let haskell_acfg = {
            (fun asts ->
              let qconid = List.hd asts
              and qcnamelist = List.at asts 2 in
-             do_bounds asts (Ast0_export_type (qconid,
+             ast0_do_bounds asts (Ast0_export_type (qconid,
                Some (ast0getlist qcnamelist))))
        };
        { lhs = NTexport;
@@ -245,7 +239,7 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let modid = List.at asts 1 in
-             do_bounds asts (Ast0_export_module modid))
+             ast0_do_bounds asts (Ast0_export_module modid))
        };
        { lhs = NTtopdecl;
          rhs = [ T RImport; T VarId; T ConId; T VarId; T ConId; NT NTimpspec ];
@@ -256,7 +250,7 @@ let haskell_acfg = {
              and as_kwd = List.at asts 3
              and asmodid = List.at asts 4
              and impspec = List.at asts 5 in
-             do_bounds asts (Ast0_topdecl_import (Some qualified,
+             ast0_do_bounds asts (Ast0_topdecl_import (Some qualified,
                modid, Some (as_kwd, asmodid), Some impspec)))
        };
        { lhs = NTtopdecl;
@@ -267,7 +261,7 @@ let haskell_acfg = {
              and modid = List.at asts 2
              and as_kwd = List.at asts 3
              and asmodid = List.at asts 4 in
-             do_bounds asts (Ast0_topdecl_import (Some qualified,
+             ast0_do_bounds asts (Ast0_topdecl_import (Some qualified,
                modid, Some (as_kwd, asmodid), None)))
        };
        { lhs = NTtopdecl;
@@ -277,7 +271,7 @@ let haskell_acfg = {
              let qualified = List.at asts 1
              and modid = List.at asts 2
              and impspec = List.at asts 3 in
-             do_bounds asts (Ast0_topdecl_import (Some qualified,
+             ast0_do_bounds asts (Ast0_topdecl_import (Some qualified,
                modid, None, Some impspec)))
        };
        { lhs = NTtopdecl;
@@ -286,7 +280,7 @@ let haskell_acfg = {
            (fun asts ->
              let qualified = List.at asts 1
              and modid = List.at asts 2 in
-             do_bounds asts (Ast0_topdecl_import (Some qualified,
+             ast0_do_bounds asts (Ast0_topdecl_import (Some qualified,
                modid, None, None)))
        };
        { lhs = NTtopdecl;
@@ -297,7 +291,7 @@ let haskell_acfg = {
              and as_kwd = List.at asts 2
              and asmodid = List.at asts 3
              and impspec = List.at asts 4 in
-             do_bounds asts (Ast0_topdecl_import (None,
+             ast0_do_bounds asts (Ast0_topdecl_import (None,
                modid, Some (as_kwd, asmodid), Some impspec)))
        };
        { lhs = NTtopdecl;
@@ -307,7 +301,7 @@ let haskell_acfg = {
              let modid = List.at asts 1
              and as_kwd = List.at asts 2
              and asmodid = List.at asts 3 in
-             do_bounds asts (Ast0_topdecl_import (None,
+             ast0_do_bounds asts (Ast0_topdecl_import (None,
                modid, Some (as_kwd, asmodid), None)))
        };
        { lhs = NTtopdecl;
@@ -316,7 +310,7 @@ let haskell_acfg = {
            (fun asts ->
              let modid = List.at asts 1
              and impspec = List.at asts 2 in
-             do_bounds asts (Ast0_topdecl_import (None,
+             ast0_do_bounds asts (Ast0_topdecl_import (None,
                modid, None, Some impspec)))
        };
        { lhs = NTtopdecl;
@@ -324,7 +318,7 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let modid = List.at asts 1 in
-             do_bounds asts (Ast0_topdecl_import (None,
+             ast0_do_bounds asts (Ast0_topdecl_import (None,
                modid, None, None)))
        };
        { lhs = NTimpspec;
@@ -332,14 +326,14 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let hiding = List.hd asts in
-             do_bounds asts (Ast0_impspec (Some hiding, [])))
+             ast0_do_bounds asts (Ast0_impspec (Some hiding, [])))
        };
        { lhs = NTimpspec;
          rhs = [ T VarId; T LParen; T Comma; T RParen ];
          semantic_action =
            (fun asts ->
              let hiding = List.hd asts in
-             do_bounds asts (Ast0_impspec (Some hiding, [])))
+             ast0_do_bounds asts (Ast0_impspec (Some hiding, [])))
        };
        { lhs = NTimpspec;
          rhs = [ T VarId; T LParen; NT NTimportlist; T RParen ];
@@ -347,7 +341,7 @@ let haskell_acfg = {
            (fun asts ->
              let hiding = List.hd asts
              and importlist = List.at asts 2 in
-             do_bounds asts (Ast0_impspec (Some hiding,
+             ast0_do_bounds asts (Ast0_impspec (Some hiding,
                ast0getlist importlist)))
        };
        { lhs = NTimpspec;
@@ -356,27 +350,27 @@ let haskell_acfg = {
            (fun asts ->
              let hiding = List.hd asts
              and importlist = List.at asts 2 in
-             do_bounds asts (Ast0_impspec (Some hiding,
+             ast0_do_bounds asts (Ast0_impspec (Some hiding,
                ast0getlist importlist)))
        };
        { lhs = NTimpspec;
          rhs = [ T LParen; T RParen ];
          semantic_action =
            (fun asts ->
-             do_bounds asts (Ast0_impspec (None, [])))
+             ast0_do_bounds asts (Ast0_impspec (None, [])))
        };
        { lhs = NTimpspec;
          rhs = [ T LParen; T Comma; T RParen ];
          semantic_action =
            (fun asts ->
-             do_bounds asts (Ast0_impspec (None, [])))
+             ast0_do_bounds asts (Ast0_impspec (None, [])))
        };
        { lhs = NTimpspec;
          rhs = [ T LParen; NT NTimportlist; T RParen ];
          semantic_action =
            (fun asts ->
              let importlist = List.at asts 1 in
-             do_bounds asts (Ast0_impspec (None,
+             ast0_do_bounds asts (Ast0_impspec (None,
                ast0getlist importlist)))
        };
        { lhs = NTimpspec;
@@ -384,7 +378,7 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let importlist = List.at asts 1 in
-             do_bounds asts (Ast0_impspec (None,
+             ast0_do_bounds asts (Ast0_impspec (None,
                ast0getlist importlist)))
        };
        { lhs = NTimportlist;
@@ -400,21 +394,21 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let qvar = List.hd asts in
-             do_bounds asts (Ast0_import_var qvar))
+             ast0_do_bounds asts (Ast0_import_var qvar))
        };
        { lhs = NTimport;
          rhs = [ T ConId; T LParen; T RDotDot; T RParen ];
          semantic_action =
            (fun asts ->
              let conid = List.hd asts in
-             do_bounds asts (Ast0_import_type (conid, None)))
+             ast0_do_bounds asts (Ast0_import_type (conid, None)))
        };
        { lhs = NTimport;
          rhs = [ T ConId; T LParen; T RParen ];
          semantic_action =
            (fun asts ->
              let conid = List.hd asts in
-             do_bounds asts (Ast0_import_type (conid, Some [])))
+             ast0_do_bounds asts (Ast0_import_type (conid, Some [])))
        };
        { lhs = NTimport;
          rhs = [ T ConId; T LParen; NT NTqcnamelist; T RParen ];
@@ -422,7 +416,7 @@ let haskell_acfg = {
            (fun asts ->
              let conid = List.hd asts
              and qcnamelist = List.at asts 2 in
-             do_bounds asts (Ast0_import_type (conid, Some (ast0getlist
+             ast0_do_bounds asts (Ast0_import_type (conid, Some (ast0getlist
                qcnamelist))))
        };
        { lhs = NTqcname;
@@ -451,7 +445,7 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.at asts 1
              and rhs = List.at asts 3 in
-             do_bounds asts (Ast0_topdecl_type (lhs, rhs)))
+             ast0_do_bounds asts (Ast0_topdecl_type (lhs, rhs)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RData; NT NTsimpletype; T REquals; NT NTconstrs; NT NTderiving ];
@@ -460,7 +454,7 @@ let haskell_acfg = {
              let lhs = List.at asts 1
              and rhs = List.at asts 3
              and deriving = List.at asts 4 in
-             do_bounds asts (Ast0_topdecl_data (lhs, ast0getlist rhs,
+             ast0_do_bounds asts (Ast0_topdecl_data (lhs, ast0getlist rhs,
                Some deriving)))
        };
        { lhs = NTtopdecl;
@@ -469,7 +463,7 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.at asts 1
              and rhs = List.at asts 3 in
-             do_bounds asts (Ast0_topdecl_data (lhs, ast0getlist rhs,
+             ast0_do_bounds asts (Ast0_topdecl_data (lhs, ast0getlist rhs,
                None)))
        };
        { lhs = NTtopdecl;
@@ -479,7 +473,7 @@ let haskell_acfg = {
              let lhs = List.at asts 1
              and rhs = List.at asts 3
              and deriving = List.at asts 4 in
-             do_bounds asts (Ast0_topdecl_newtype (lhs, rhs,
+             ast0_do_bounds asts (Ast0_topdecl_newtype (lhs, rhs,
                Some deriving)))
        };
        { lhs = NTtopdecl;
@@ -488,7 +482,7 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.at asts 1
              and rhs = List.at asts 3 in
-             do_bounds asts (Ast0_topdecl_newtype (lhs, rhs, None)))
+             ast0_do_bounds asts (Ast0_topdecl_newtype (lhs, rhs, None)))
        };
        { lhs = NTtopdecl;
          rhs = [ T RClass; NT NTscontext; T REqualsRArrow; T ConId; T VarId; T RWhere; NT NTdecls ];
@@ -498,7 +492,7 @@ let haskell_acfg = {
              and lhs_class = List.at asts 3
              and lhs_var = List.at asts 4
              and rhs = List.at asts 6 in
-             do_bounds asts (Ast0_topdecl_class (Some scontext,
+             ast0_do_bounds asts (Ast0_topdecl_class (Some scontext,
                lhs_class, lhs_var, ast0getlist rhs)))
        };
        { lhs = NTtopdecl;
@@ -508,7 +502,7 @@ let haskell_acfg = {
              let scontext = List.at asts 1
              and lhs_class = List.at asts 3
              and lhs_var = List.at asts 4 in
-             do_bounds asts (Ast0_topdecl_class (Some scontext,
+             ast0_do_bounds asts (Ast0_topdecl_class (Some scontext,
                lhs_class, lhs_var, [])))
        };
        { lhs = NTtopdecl;
@@ -518,7 +512,7 @@ let haskell_acfg = {
              let lhs_class = List.at asts 1
              and lhs_var = List.at asts 2
              and rhs = List.at asts 4 in
-             do_bounds asts (Ast0_topdecl_class (None,
+             ast0_do_bounds asts (Ast0_topdecl_class (None,
                lhs_class, lhs_var, ast0getlist rhs)))
        };
        { lhs = NTtopdecl;
@@ -527,7 +521,7 @@ let haskell_acfg = {
            (fun asts ->
              let lhs_class = List.at asts 1
              and lhs_var = List.at asts 2 in
-             do_bounds asts (Ast0_topdecl_class (None,
+             ast0_do_bounds asts (Ast0_topdecl_class (None,
                lhs_class, lhs_var, [])))
        };
        { lhs = NTtopdecl;
@@ -538,7 +532,7 @@ let haskell_acfg = {
              and lhs_class = List.at asts 3
              and lhs_inst = List.at asts 4
              and rhs = List.at asts 6 in
-             do_bounds asts (Ast0_topdecl_instance (Some scontext,
+             ast0_do_bounds asts (Ast0_topdecl_instance (Some scontext,
                lhs_class, lhs_inst, ast0getlist rhs)))
        };
        { lhs = NTtopdecl;
@@ -548,7 +542,7 @@ let haskell_acfg = {
              let scontext = List.at asts 1
              and lhs_class = List.at asts 3
              and lhs_inst = List.at asts 4 in
-             do_bounds asts (Ast0_topdecl_instance (Some scontext,
+             ast0_do_bounds asts (Ast0_topdecl_instance (Some scontext,
                lhs_class, lhs_inst, [])))
        };
        { lhs = NTtopdecl;
@@ -558,7 +552,7 @@ let haskell_acfg = {
              let lhs_class = List.at asts 1
              and lhs_inst = List.at asts 2
              and rhs = List.at asts 4 in
-             do_bounds asts (Ast0_topdecl_instance (None,
+             ast0_do_bounds asts (Ast0_topdecl_instance (None,
                lhs_class, lhs_inst, ast0getlist rhs)))
        };
        { lhs = NTtopdecl;
@@ -567,28 +561,28 @@ let haskell_acfg = {
            (fun asts ->
              let lhs_class = List.at asts 1
              and lhs_inst = List.at asts 2 in
-             do_bounds asts (Ast0_topdecl_instance (None,
+             ast0_do_bounds asts (Ast0_topdecl_instance (None,
                lhs_class, lhs_inst, [])))
        };
        { lhs = NTtopdecl;
          rhs = [ T RDefault; T LParen; T RParen ];
          semantic_action =
            (fun asts ->
-             do_bounds asts (Ast0_topdecl_default []))
+             ast0_do_bounds asts (Ast0_topdecl_default []))
        };
        { lhs = NTtopdecl;
          rhs = [ T RDefault; T LParen; NT NTtypelist; T RParen ];
          semantic_action =
            (fun asts ->
              let typelist = List.at asts 2 in
-             do_bounds asts (Ast0_topdecl_default (ast0getlist typelist)))
+             ast0_do_bounds asts (Ast0_topdecl_default (ast0getlist typelist)))
        };
        { lhs = NTtopdecl;
          rhs = [ NT NTdecl ];
          semantic_action =
            (fun asts ->
              let decl = List.hd asts in
-             do_bounds asts (Ast0_topdecl_decl decl))
+             ast0_do_bounds asts (Ast0_topdecl_decl decl))
        };
        { lhs = NTtypelist;
          rhs = [ NT NTtype; T Comma; NT NTtypelist ];
@@ -602,7 +596,7 @@ let haskell_acfg = {
          rhs = [ T LCurly; T RCurly ];
          semantic_action =
            (fun asts ->
-             do_bounds asts (Ast0_partial_list []))
+             ast0_do_bounds asts (Ast0_partial_list []))
        };
        { lhs = NTdecls;
          rhs = [ T LCurly; NT NTdecllist; T RCurly ];
@@ -626,13 +620,13 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.hd asts
              and rhs = List.at asts 1 in
-             do_bounds asts (Ast0_decl_bind (lhs, rhs)))
+             ast0_do_bounds asts (Ast0_decl_bind (lhs, rhs)))
        };
        { lhs = NTgendecl;
          rhs = [];
          semantic_action =
            (fun asts ->
-             do_bounds asts Ast0_decl_empty)
+             ast0_do_bounds asts Ast0_decl_empty)
        };
        { lhs = NTgendecl;
          rhs = [ NT NTqvars; T RColonColon; NT NTtype ];
@@ -640,7 +634,7 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.hd asts
              and rhs = List.at asts 2 in
-             do_bounds asts (Ast0_decl_type (ast0getlist lhs, rhs)))
+             ast0_do_bounds asts (Ast0_decl_type (ast0getlist lhs, rhs)))
        };
        { lhs = NTgendecl;
          rhs = [ NT NTfixity; T IntLit; NT NTops ];
@@ -649,7 +643,7 @@ let haskell_acfg = {
              let fixity = List.hd asts
              and prec = List.at asts 1
              and rhs = List.at asts 2 in
-             do_bounds asts (Ast0_decl_fixity (fixity, Some prec,
+             ast0_do_bounds asts (Ast0_decl_fixity (fixity, Some prec,
                ast0getlist rhs)))
        };
        { lhs = NTgendecl;
@@ -658,7 +652,7 @@ let haskell_acfg = {
            (fun asts ->
              let fixity = List.hd asts
              and rhs = List.at asts 1 in
-             do_bounds asts (Ast0_decl_fixity (fixity, None,
+             ast0_do_bounds asts (Ast0_decl_fixity (fixity, None,
                ast0getlist rhs)))
        };
        { lhs = NTops;
@@ -703,7 +697,7 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.hd asts
              and rhs = List.at asts 2 in
-             do_bounds asts (Ast0_type_fun (lhs, rhs)))
+             ast0_do_bounds asts (Ast0_type_fun (lhs, rhs)))
        };
        { lhs = NTtype;
          rhs = [ NT NTbtype; T REqualsRArrow; NT NTtype ];
@@ -711,14 +705,14 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.hd asts
              and rhs = List.at asts 2 in
-             do_bounds asts (Ast0_type_context (lhs, rhs)))
+             ast0_do_bounds asts (Ast0_type_context (lhs, rhs)))
        };
        { lhs = NTtype;
          rhs = [ NT NTbtype ];
          semantic_action =
            (fun asts ->
              let t = List.hd asts in
-             do_bounds asts (Ast0_type_btype t))
+             ast0_do_bounds asts (Ast0_type_btype t))
        };
        { lhs = NTbtype;
          rhs = [ NT NTbtype; NT NTatype ];
@@ -726,28 +720,28 @@ let haskell_acfg = {
            (fun asts ->
              let lhs = List.hd asts
              and rhs = List.at asts 1 in
-             do_bounds asts (Ast0_btype_app (lhs, rhs)))
+             ast0_do_bounds asts (Ast0_btype_app (lhs, rhs)))
        };
        { lhs = NTbtype;
          rhs = [ NT NTatype ];
          semantic_action =
            (fun asts ->
              let t = List.hd asts in
-             do_bounds asts (Ast0_btype_atype t))
+             ast0_do_bounds asts (Ast0_btype_atype t))
        };
        { lhs = NTatype;
          rhs = [ NT NTgtycon ];
          semantic_action =
            (fun asts ->
              let t = List.hd asts in
-             do_bounds asts (Ast0_atype_con t))
+             ast0_do_bounds asts (Ast0_atype_con t))
        };
        { lhs = NTatype;
          rhs = [ T VarId ];
          semantic_action =
            (fun asts ->
              let t = List.hd asts in
-             do_bounds asts (Ast0_atype_var t))
+             ast0_do_bounds asts (Ast0_atype_var t))
        };
        { lhs = NTatype;
          rhs = [ T LParen; NT NTtype; T Comma; NT NTtypelist; T RParen ];
@@ -755,7 +749,7 @@ let haskell_acfg = {
            (fun asts ->
              let car = List.at asts 1
              and cdr = List.at asts 3 in
-             do_bounds asts (Ast0_atype_tuple
+             ast0_do_bounds asts (Ast0_atype_tuple
                (ast0nodegetlist (ast0cons car cdr))))
        };
        { lhs = NTatype;
@@ -763,46 +757,46 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let t = List.at asts 1 in
-             do_bounds asts (Ast0_atype_list t))
+             ast0_do_bounds asts (Ast0_atype_list t))
        };
        { lhs = NTatype;
          rhs = [ T LParen; NT NTtype; T RParen ];
          semantic_action =
            (fun asts ->
              let t = List.at asts 1 in
-             do_bounds asts (Ast0_atype_paren t))
+             ast0_do_bounds asts (Ast0_atype_paren t))
        };
        { lhs = NTgtycon;
          rhs = [ NT NTqconid ];
          semantic_action =
            (fun asts ->
              let c = List.hd asts in
-             do_bounds asts (Ast0_gtycon_con c))
+             ast0_do_bounds asts (Ast0_gtycon_con c))
        };
        { lhs = NTgtycon;
          rhs = [ T LParen; T RParen ];
          semantic_action =
            (fun asts ->
-             do_bounds asts Ast0_gtycon_unit)
+             ast0_do_bounds asts Ast0_gtycon_unit)
        };
        { lhs = NTgtycon;
          rhs = [ T LSquare; T RSquare ];
          semantic_action =
            (fun asts ->
-             do_bounds asts Ast0_gtycon_list)
+             ast0_do_bounds asts Ast0_gtycon_list)
        };
        { lhs = NTgtycon;
          rhs = [ T LParen; T RDashRArrow; T RParen ];
          semantic_action =
            (fun asts ->
-             do_bounds asts Ast0_gtycon_fun)
+             ast0_do_bounds asts Ast0_gtycon_fun)
        };
        { lhs = NTgtycon;
          rhs = [ T LParen; NT NTcommalist; T RParen ];
          semantic_action =
            (fun asts ->
              let commas = List.at asts 1 in
-             do_bounds asts (Ast0_gtycon_tuple (ast0getlist commas)))
+             ast0_do_bounds asts (Ast0_gtycon_tuple (ast0getlist commas)))
        };
        { lhs = NTcommalist;
          rhs = [ T Comma; NT NTcommalist ];
@@ -817,20 +811,20 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let simpleclass = List.hd asts in
-             do_bounds asts (Ast0_scontext [simpleclass]))
+             ast0_do_bounds asts (Ast0_scontext [simpleclass]))
        };
        { lhs = NTscontext;
          rhs = [ T LParen; T RParen ];
          semantic_action =
            (fun asts ->
-             do_bounds asts (Ast0_scontext []))
+             ast0_do_bounds asts (Ast0_scontext []))
        };
        { lhs = NTscontext;
          rhs = [ T LParen; NT NTsimpleclasslist; T RParen ];
          semantic_action =
            (fun asts ->
              let simpleclasslist = List.at asts 1 in
-             do_bounds asts (Ast0_scontext (ast0getlist simpleclasslist)))
+             ast0_do_bounds asts (Ast0_scontext (ast0getlist simpleclasslist)))
        };
        { lhs = NTsimpleclasslist;
          rhs = [ NT NTsimpleclass; T Comma; NT NTsimpleclasslist ];
@@ -846,14 +840,14 @@ let haskell_acfg = {
            (fun asts ->
              let c = List.hd asts
              and v = List.at asts 1 in
-             do_bounds asts (Ast0_simpleclass (c, v)))
+             ast0_do_bounds asts (Ast0_simpleclass (c, v)))
        };
        { lhs = NTsimpletype;
          rhs = [ T ConId ];
          semantic_action =
            (fun asts ->
              let c = List.hd asts in
-             do_bounds asts (Ast0_simpletype (c, [])))
+             ast0_do_bounds asts (Ast0_simpletype (c, [])))
        };
        { lhs = NTsimpletype;
          rhs = [ T ConId; NT NTtyvarlist ];
@@ -861,7 +855,7 @@ let haskell_acfg = {
            (fun asts ->
              let c = List.hd asts
              and tvs = List.at asts 1 in
-             do_bounds asts (Ast0_simpletype (c, ast0getlist tvs)))
+             ast0_do_bounds asts (Ast0_simpletype (c, ast0getlist tvs)))
        };
        { lhs = NTtyvarlist;
          rhs = [ T VarId; NT NTtyvarlist ];
@@ -888,7 +882,7 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let t = List.hd asts in
-             do_bounds asts (Ast0_constr_con t))
+             ast0_do_bounds asts (Ast0_constr_con t))
        };
        { lhs = NTconstr;
          rhs = [ NT NTbtype; NT NTconop; NT NTbtype ];
@@ -897,14 +891,14 @@ let haskell_acfg = {
              let t1 = List.hd asts
              and op = List.at asts 1
              and t2 = List.at asts 2 in
-             do_bounds asts (Ast0_constr_conop (t1, op, t2)))
+             ast0_do_bounds asts (Ast0_constr_conop (t1, op, t2)))
        };
        { lhs = NTconstr;
          rhs = [ NT NTcon; T LCurly; T RCurly ];
          semantic_action =
            (fun asts ->
              let c = List.hd asts in
-             do_bounds asts (Ast0_constr_fields (c, [])))
+             ast0_do_bounds asts (Ast0_constr_fields (c, [])))
        };
        { lhs = NTconstr;
          rhs = [ NT NTcon; T LCurly; NT NTfielddecllist; T RCurly ];
@@ -912,7 +906,7 @@ let haskell_acfg = {
            (fun asts ->
              let c = List.hd asts
              and fdl = List.at asts 2 in
-             do_bounds asts (Ast0_constr_fields (c, ast0getlist fdl)))
+             ast0_do_bounds asts (Ast0_constr_fields (c, ast0getlist fdl)))
        };
        { lhs = NTfielddecllist;
          rhs = [ NT NTfielddecl; T Comma; NT NTfielddecllist ];
@@ -928,7 +922,7 @@ let haskell_acfg = {
            (fun asts ->
              let c = List.hd asts
              and t = List.at asts 1 in
-             do_bounds asts (Ast0_newconstr_con (c, t)))
+             ast0_do_bounds asts (Ast0_newconstr_con (c, t)))
        };
        { lhs = NTnewconstr;
          rhs = [ NT NTcon; T LCurly; NT NTqvar; T RColonColon; NT NTtype; T RCurly ];
@@ -937,7 +931,7 @@ let haskell_acfg = {
              let c = List.hd asts
              and v = List.at asts 2
              and t = List.at asts 4 in
-             do_bounds asts (Ast0_newconstr_field (c, v, t)))
+             ast0_do_bounds asts (Ast0_newconstr_field (c, v, t)))
        };
        { lhs = NTfielddecl;
          rhs = [ NT NTqvars; T RColonColon; NT NTtype ];
@@ -945,27 +939,27 @@ let haskell_acfg = {
            (fun asts ->
              let vs = List.hd asts
              and t = List.at asts 2 in
-             do_bounds asts (Ast0_fielddecl (ast0getlist vs, t)))
+             ast0_do_bounds asts (Ast0_fielddecl (ast0getlist vs, t)))
        };
        { lhs = NTderiving;
          rhs = [ T RDeriving; NT NTdclass ];
          semantic_action =
            (fun asts ->
              let dc = List.at asts 1 in
-             do_bounds asts (Ast0_deriving [dc]))
+             ast0_do_bounds asts (Ast0_deriving [dc]))
        };
        { lhs = NTderiving;
          rhs = [ T RDeriving; T LParen; T RParen ];
          semantic_action =
            (fun asts ->
-             do_bounds asts (Ast0_deriving []))
+             ast0_do_bounds asts (Ast0_deriving []))
        };
        { lhs = NTderiving;
          rhs = [ T RDeriving; T LParen; NT NTdclasslist; T RParen ];
          semantic_action =
            (fun asts ->
              let dcl = List.at asts 2 in
-             do_bounds asts (Ast0_deriving (ast0getlist dcl)))
+             ast0_do_bounds asts (Ast0_deriving (ast0getlist dcl)))
        };
        { lhs = NTdclasslist;
          rhs = [ NT NTdclass; T Comma; NT NTdclasslist ];
@@ -984,14 +978,14 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let c = List.hd asts in
-             do_bounds asts (Ast0_inst_con c))
+             ast0_do_bounds asts (Ast0_inst_con c))
        };
        { lhs = NTinst;
          rhs = [ T LParen; NT NTgtycon; T RParen ];
          semantic_action =
            (fun asts ->
              let c = List.at asts 1 in
-             do_bounds asts (Ast0_inst_con c))
+             ast0_do_bounds asts (Ast0_inst_con c))
        };
        { lhs = NTinst;
          rhs = [ T LParen; NT NTgtycon; NT NTtyvarlist; T RParen ];
@@ -999,7 +993,7 @@ let haskell_acfg = {
            (fun asts ->
              let c = List.at asts 1
              and ts = List.at asts 2 in
-             do_bounds asts (Ast0_inst_app (c, ast0getlist ts)))
+             ast0_do_bounds asts (Ast0_inst_app (c, ast0getlist ts)))
        };
        { lhs = NTinst;
          rhs = [ T LParen; T VarId; T Comma; NT NTtyvarcommalist; T RParen ];
@@ -1007,7 +1001,7 @@ let haskell_acfg = {
            (fun asts ->
              let t = List.at asts 1
              and ts = List.at asts 3 in
-             do_bounds asts (Ast0_inst_tuple
+             ast0_do_bounds asts (Ast0_inst_tuple
                (ast0nodegetlist (ast0cons t ts))))
        };
        { lhs = NTinst;
@@ -1015,7 +1009,7 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let t = List.at asts 1 in
-             do_bounds asts (Ast0_inst_list t))
+             ast0_do_bounds asts (Ast0_inst_list t))
        };
        { lhs = NTinst;
          rhs = [ T LParen; T VarId; T RDashRArrow; T VarId; T RParen ];
@@ -1023,7 +1017,7 @@ let haskell_acfg = {
            (fun asts ->
              let t1 = List.at asts 1
              and t2 = List.at asts 2 in
-             do_bounds asts (Ast0_inst_fun (t1, t2)))
+             ast0_do_bounds asts (Ast0_inst_fun (t1, t2)))
        };
        { lhs = NTtyvarcommalist;
          rhs = [ T VarId; T Comma; NT NTtyvarcommalist ];
@@ -1047,14 +1041,14 @@ let haskell_acfg = {
            (fun asts ->
              let e = List.at asts 1
              and decls = List.at asts 3 in
-             do_bounds asts (Ast0_rhs_eq (e, Some (ast0getlist decls))))
+             ast0_do_bounds asts (Ast0_rhs_eq (e, Some (ast0getlist decls))))
        };
        { lhs = NTrhs;
          rhs = [ T REquals; NT NTexp ];
          semantic_action =
            (fun asts ->
              let e = List.at asts 1 in
-             do_bounds asts (Ast0_rhs_eq (e, None)))
+             ast0_do_bounds asts (Ast0_rhs_eq (e, None)))
        };
        { lhs = NTrhs;
          rhs = [ NT NTgdrhs; T RWhere; NT NTdecls ];
@@ -1062,7 +1056,7 @@ let haskell_acfg = {
            (fun asts ->
              let g = List.hd asts
              and decls = List.at asts 2 in
-             do_bounds asts (Ast0_rhs_guard (ast0getlist g,
+             ast0_do_bounds asts (Ast0_rhs_guard (ast0getlist g,
                Some (ast0getlist decls))))
        };
        { lhs = NTrhs;
@@ -1070,7 +1064,7 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let g = List.hd asts in
-             do_bounds asts (Ast0_rhs_guard (ast0getlist g, None)))
+             ast0_do_bounds asts (Ast0_rhs_guard (ast0getlist g, None)))
        };
        (* The next 2 semantic actions are super ugly, as they're trying to
         * kludge around the weird grammar for gdrhs to produce a list of simple
@@ -1082,7 +1076,7 @@ let haskell_acfg = {
              let g = List.hd asts
              and e = List.at asts 2
              and rhs = List.at asts 3 in
-             cons_nodelim_action [(do_bounds asts (Ast0_gdrhs (g, e))); rhs])
+             cons_nodelim_action [(ast0_do_bounds asts (Ast0_gdrhs (g, e))); rhs])
        };
        { lhs = NTgdrhs;
          rhs = [ NT NTgd; T REquals; NT NTexp ];
@@ -1090,7 +1084,7 @@ let haskell_acfg = {
            (fun asts ->
              let g = List.hd asts
              and e = List.at asts 2 in
-             singleton_action [do_bounds asts (Ast0_gdrhs (g, e))])
+             singleton_action [ast0_do_bounds asts (Ast0_gdrhs (g, e))])
        };
        { lhs = NTgd;
          rhs = [ T RPipe; NT NTinfixexp ];
@@ -1102,14 +1096,14 @@ let haskell_acfg = {
            (fun asts ->
              let e = List.hd asts
              and t = List.at asts 2 in
-             do_bounds asts (Ast0_exp (e, Some t)))
+             ast0_do_bounds asts (Ast0_exp (e, Some t)))
        };
        { lhs = NTexp;
          rhs = [ NT NTinfixexp ];
          semantic_action =
            (fun asts ->
              let e = List.hd asts in
-             do_bounds asts (Ast0_exp (e, None)))
+             ast0_do_bounds asts (Ast0_exp (e, None)))
        };
        { lhs = NTinfixexp;
          rhs = [ NT NTexp10; NT NTqop; NT NTinfixexp ];
@@ -1118,14 +1112,14 @@ let haskell_acfg = {
              let e1 = List.hd asts
              and op = List.at asts 1
              and e2 = List.at asts 2 in
-             do_bounds asts (Ast0_infixexp_op (e1, op, e2)))
+             ast0_do_bounds asts (Ast0_infixexp_op (e1, op, e2)))
        };
        { lhs = NTinfixexp;
          rhs = [ NT NTexp10 ];
          semantic_action =
            (fun asts ->
              let e = List.hd asts in
-             do_bounds asts (Ast0_infixexp_exp10 e))
+             ast0_do_bounds asts (Ast0_infixexp_exp10 e))
        };
        { lhs = NTexp10;
          rhs = [ T RBackslash; NT NTaexplist; T RDashRArrow; NT NTexp ];
@@ -1133,7 +1127,7 @@ let haskell_acfg = {
            (fun asts ->
              let es = List.at asts 1
              and e = List.at asts 3 in
-             do_bounds asts (Ast0_exp10_lambda (ast0getlist es, e)))
+             ast0_do_bounds asts (Ast0_exp10_lambda (ast0getlist es, e)))
        };
        { lhs = NTexp10;
          rhs = [ T RLet; NT NTdecls; T RIn; NT NTexp ];
@@ -1141,7 +1135,7 @@ let haskell_acfg = {
            (fun asts ->
              let ds = List.at asts 1
              and e = List.at asts 3 in
-             do_bounds asts (Ast0_exp10_let (ast0getlist ds, e)))
+             ast0_do_bounds asts (Ast0_exp10_let (ast0getlist ds, e)))
        };
        { lhs = NTexp10;
          rhs = [ T RIf; NT NTexp; T RThen; NT NTexp; T RElse; NT NTexp ];
@@ -1150,7 +1144,7 @@ let haskell_acfg = {
              let e1 = List.at asts 1
              and e2 = List.at asts 3
              and e3 = List.at asts 5 in
-             do_bounds asts (Ast0_exp10_if (e1, e2, e3)))
+             ast0_do_bounds asts (Ast0_exp10_if (e1, e2, e3)))
        };
        { lhs = NTexp10;
          rhs = [ T RCase; NT NTexp; T ROf; T LCurly; NT NTalts; T RCurly ];
@@ -1158,49 +1152,49 @@ let haskell_acfg = {
            (fun asts ->
              let e = List.at asts 1
              and alts = List.at asts 4 in
-             do_bounds asts (Ast0_exp10_case (e, ast0getlist alts)))
+             ast0_do_bounds asts (Ast0_exp10_case (e, ast0getlist alts)))
        };
        { lhs = NTexp10;
          rhs = [ T RDo; T LCurly; NT NTstmts; T RCurly ];
          semantic_action =
            (fun asts ->
              let stmts = List.at asts 2 in
-             do_bounds asts (Ast0_exp10_do (ast0getlist stmts)))
+             ast0_do_bounds asts (Ast0_exp10_do (ast0getlist stmts)))
        };
        { lhs = NTexp10;
          rhs = [ NT NTaexplist ];
          semantic_action =
            (fun asts ->
              let aexps = List.hd asts in
-             do_bounds asts (Ast0_exp10_aexps (ast0getlist aexps)))
+             ast0_do_bounds asts (Ast0_exp10_aexps (ast0getlist aexps)))
        };
        { lhs = NTaexp;
          rhs = [ NT NTqvar ];
          semantic_action =
            (fun asts ->
              let v = List.hd asts in
-             do_bounds asts (Ast0_aexp_var v))
+             ast0_do_bounds asts (Ast0_aexp_var v))
        };
        { lhs = NTaexp;
          rhs = [ NT NTgcon ];
          semantic_action =
            (fun asts ->
              let c = List.hd asts in
-             do_bounds asts (Ast0_aexp_con c))
+             ast0_do_bounds asts (Ast0_aexp_con c))
        };
        { lhs = NTaexp;
          rhs = [ NT NTliteral ];
          semantic_action =
            (fun asts ->
              let l = List.hd asts in
-             do_bounds asts (Ast0_aexp_literal l))
+             ast0_do_bounds asts (Ast0_aexp_literal l))
        };
        { lhs = NTaexp;
          rhs = [ T LParen; NT NTexp; T RParen ];
          semantic_action =
            (fun asts ->
              let e = List.at asts 1 in
-             do_bounds asts (Ast0_aexp_paren e))
+             ast0_do_bounds asts (Ast0_aexp_paren e))
        };
        { lhs = NTaexp;
          rhs = [ T LParen; NT NTexp; T Comma; NT NTexplist; T RParen ];
@@ -1208,7 +1202,7 @@ let haskell_acfg = {
            (fun asts ->
              let e = List.at asts 1
              and es = List.at asts 3 in
-             do_bounds asts (Ast0_aexp_tuple
+             ast0_do_bounds asts (Ast0_aexp_tuple
                (ast0nodegetlist (ast0cons e es))))
        };
        { lhs = NTaexp;
@@ -1216,7 +1210,7 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let es = List.at asts 1 in
-             do_bounds asts (Ast0_aexp_list (ast0getlist es)))
+             ast0_do_bounds asts (Ast0_aexp_list (ast0getlist es)))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexp; T Comma; NT NTexp; T RDotDot; NT NTexp; T RSquare ];
@@ -1225,7 +1219,7 @@ let haskell_acfg = {
              let e1 = List.at asts 1
              and e2 = List.at asts 3
              and e3 = List.at asts 5 in
-             do_bounds asts (Ast0_aexp_seq (e1, Some e2, Some e3)))
+             ast0_do_bounds asts (Ast0_aexp_seq (e1, Some e2, Some e3)))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexp; T Comma; NT NTexp; T RDotDot; T RSquare ];
@@ -1233,7 +1227,7 @@ let haskell_acfg = {
            (fun asts ->
              let e1 = List.at asts 1
              and e2 = List.at asts 3 in
-             do_bounds asts (Ast0_aexp_seq (e1, Some e2, None)))
+             ast0_do_bounds asts (Ast0_aexp_seq (e1, Some e2, None)))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexp; T RDotDot; NT NTexp; T RSquare ];
@@ -1241,14 +1235,14 @@ let haskell_acfg = {
            (fun asts ->
              let e1 = List.at asts 1
              and e3 = List.at asts 3 in
-             do_bounds asts (Ast0_aexp_seq (e1, None, Some e3)))
+             ast0_do_bounds asts (Ast0_aexp_seq (e1, None, Some e3)))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexp; T RDotDot; T RSquare ];
          semantic_action =
            (fun asts ->
              let e1 = List.at asts 1 in
-             do_bounds asts (Ast0_aexp_seq (e1, None, None)))
+             ast0_do_bounds asts (Ast0_aexp_seq (e1, None, None)))
        };
        { lhs = NTaexp;
          rhs = [ T LSquare; NT NTexp; T RPipe; NT NTquallist; T RSquare ];
@@ -1256,7 +1250,7 @@ let haskell_acfg = {
            (fun asts ->
              let e1 = List.at asts 1
              and qs = List.at asts 3 in
-             do_bounds asts (Ast0_aexp_comp (e1, ast0getlist qs)))
+             ast0_do_bounds asts (Ast0_aexp_comp (e1, ast0getlist qs)))
        };
        { lhs = NTaexp;
          rhs = [ T LParen; NT NTinfixexp; NT NTqop; T RParen ];
@@ -1264,7 +1258,7 @@ let haskell_acfg = {
            (fun asts ->
              let e = List.at asts 1
              and op = List.at asts 2 in
-             do_bounds asts (Ast0_aexp_lsec (e, op)))
+             ast0_do_bounds asts (Ast0_aexp_lsec (e, op)))
        };
        { lhs = NTaexp;
          rhs = [ T LParen; NT NTqop; NT NTinfixexp; T RParen ];
@@ -1272,14 +1266,14 @@ let haskell_acfg = {
            (fun asts ->
              let op = List.at asts 1
              and e = List.at asts 2 in
-             do_bounds asts (Ast0_aexp_rsec (op, e)))
+             ast0_do_bounds asts (Ast0_aexp_rsec (op, e)))
        };
        { lhs = NTaexp;
          rhs = [ NT NTaexp; T LCurly; T RCurly ];
          semantic_action =
            (fun asts ->
              let e = List.hd asts in
-             do_bounds asts (Ast0_aexp_lbupdate (e, [])))
+             ast0_do_bounds asts (Ast0_aexp_lbupdate (e, [])))
        };
        { lhs = NTaexp;
          rhs = [ NT NTaexp; T LCurly; NT NTfbindlist; T RCurly ];
@@ -1287,7 +1281,7 @@ let haskell_acfg = {
            (fun asts ->
              let e = List.hd asts
              and fbl = List.at asts 2 in
-             do_bounds asts (Ast0_aexp_lbupdate (e, ast0getlist fbl)))
+             ast0_do_bounds asts (Ast0_aexp_lbupdate (e, ast0getlist fbl)))
        };
        { lhs = NTaexp;
          rhs = [ NT NTqvar; T RAt; NT NTaexp ];
@@ -1295,20 +1289,20 @@ let haskell_acfg = {
            (fun asts ->
              let v = List.hd asts
              and e = List.at asts 2 in
-             do_bounds asts (Ast0_aexp_aspat (v, e)))
+             ast0_do_bounds asts (Ast0_aexp_aspat (v, e)))
        };
        { lhs = NTaexp;
          rhs = [ T RTilde; NT NTaexp ];
          semantic_action =
            (fun asts ->
              let e = List.at asts 1 in
-             do_bounds asts (Ast0_aexp_irrefpat e))
+             ast0_do_bounds asts (Ast0_aexp_irrefpat e))
        };
        { lhs = NTaexp;
          rhs = [ T RUnderscore ];
          semantic_action =
            (fun asts ->
-             do_bounds asts Ast0_aexp_wildpat)
+             ast0_do_bounds asts Ast0_aexp_wildpat)
        };
        { lhs = NTexplist;
          rhs = [ NT NTexp; T Comma; NT NTexplist ];
@@ -1340,21 +1334,21 @@ let haskell_acfg = {
            (fun asts ->
              let e1 = List.hd asts
              and e2 = List.at asts 2 in
-             do_bounds asts (Ast0_qual_assign (e1, e2)))
+             ast0_do_bounds asts (Ast0_qual_assign (e1, e2)))
        };
        { lhs = NTqual;
          rhs = [ T RLet; NT NTdecls ];
          semantic_action =
            (fun asts ->
              let ds = List.at asts 1 in
-             do_bounds asts (Ast0_qual_let (ast0getlist ds)))
+             ast0_do_bounds asts (Ast0_qual_let (ast0getlist ds)))
        };
        { lhs = NTqual;
          rhs = [ NT NTexp ];
          semantic_action =
            (fun asts ->
              let e = List.hd asts in
-             do_bounds asts (Ast0_qual_guard e))
+             ast0_do_bounds asts (Ast0_qual_guard e))
        };
        { lhs = NTalts;
          rhs = [ NT NTaltlist ];
@@ -1375,7 +1369,7 @@ let haskell_acfg = {
              let e1 = List.hd asts
              and e2 = List.at asts 2
              and ds = List.at asts 4 in
-             do_bounds asts (Ast0_alt_match (e1, e2, Some (ast0getlist ds))))
+             ast0_do_bounds asts (Ast0_alt_match (e1, e2, Some (ast0getlist ds))))
        };
        { lhs = NTalt;
          rhs = [ NT NTexp; T RDashRArrow; NT NTexp ];
@@ -1383,7 +1377,7 @@ let haskell_acfg = {
            (fun asts ->
              let e1 = List.hd asts
              and e2 = List.at asts 2 in
-             do_bounds asts (Ast0_alt_match (e1, e2, None)))
+             ast0_do_bounds asts (Ast0_alt_match (e1, e2, None)))
        };
        { lhs = NTalt;
          rhs = [ NT NTexp; NT NTgdpat; T RWhere; NT NTdecls ];
@@ -1392,7 +1386,7 @@ let haskell_acfg = {
              let e = List.hd asts
              and g = List.at asts 1
              and ds = List.at asts 3 in
-             do_bounds asts (Ast0_alt_guard (e, ast0getlist g,
+             ast0_do_bounds asts (Ast0_alt_guard (e, ast0getlist g,
                Some (ast0getlist ds))))
        };
        { lhs = NTalt;
@@ -1401,7 +1395,7 @@ let haskell_acfg = {
            (fun asts ->
              let e = List.hd asts
              and g = List.at asts 1 in
-             do_bounds asts (Ast0_alt_guard (e, ast0getlist g, None)))
+             ast0_do_bounds asts (Ast0_alt_guard (e, ast0getlist g, None)))
        };
        (* See comment for gdrhs (these 2 are pretty much the same thing) *)
        { lhs = NTgdpat;
@@ -1411,7 +1405,7 @@ let haskell_acfg = {
              let g = List.hd asts
              and e = List.at asts 2
              and rhs = List.at asts 3 in
-             cons_nodelim_action [(do_bounds asts (Ast0_gdpat (g, e))); rhs])
+             cons_nodelim_action [(ast0_do_bounds asts (Ast0_gdpat (g, e))); rhs])
        };
        { lhs = NTgdpat;
          rhs = [ NT NTgd; T RDashRArrow; NT NTexp ];
@@ -1419,7 +1413,7 @@ let haskell_acfg = {
            (fun asts ->
              let g = List.hd asts
              and e = List.at asts 2 in
-             singleton_action [do_bounds asts (Ast0_gdpat (g, e))])
+             singleton_action [ast0_do_bounds asts (Ast0_gdpat (g, e))])
        };
        { lhs = NTstmts;
          rhs = [ NT NTstmtlist; T Semicolon ];
@@ -1442,7 +1436,7 @@ let haskell_acfg = {
          semantic_action =
            (fun asts ->
              let e = List.hd asts in
-             do_bounds asts (Ast0_stmt_exp e))
+             ast0_do_bounds asts (Ast0_stmt_exp e))
        };
        { lhs = NTstmt;
          rhs = [ NT NTexp; T RLArrowDash; NT NTexp; T Semicolon ];
@@ -1450,20 +1444,20 @@ let haskell_acfg = {
            (fun asts ->
              let e1 = List.hd asts
              and e2 = List.at asts 2 in
-             do_bounds asts (Ast0_stmt_assign (e1, e2)))
+             ast0_do_bounds asts (Ast0_stmt_assign (e1, e2)))
        };
        { lhs = NTstmt;
          rhs = [ T RLet; NT NTdecls; T Semicolon ];
          semantic_action =
            (fun asts ->
              let ds = List.at asts 1 in
-             do_bounds asts (Ast0_stmt_let (ast0getlist ds)))
+             ast0_do_bounds asts (Ast0_stmt_let (ast0getlist ds)))
        };
        { lhs = NTstmt;
          rhs = [ T Semicolon ];
          semantic_action =
            (fun asts ->
-             do_bounds asts Ast0_stmt_empty)
+             ast0_do_bounds asts Ast0_stmt_empty)
        };
        { lhs = NTfbind;
          rhs = [ NT NTqvar; T REquals; NT NTexp ];
@@ -1471,33 +1465,33 @@ let haskell_acfg = {
            (fun asts ->
              let v = List.hd asts
              and e = List.at asts 2 in
-             do_bounds asts (Ast0_fbind (v, e)))
+             ast0_do_bounds asts (Ast0_fbind (v, e)))
        };
        { lhs = NTgcon;
          rhs = [ T LParen; T RParen ];
          semantic_action =
            (fun asts ->
-             do_bounds asts Ast0_gcon_unit)
+             ast0_do_bounds asts Ast0_gcon_unit)
        };
        { lhs = NTgcon;
          rhs = [ T LSquare; T RSquare ];
          semantic_action =
            (fun asts ->
-             do_bounds asts Ast0_gcon_list)
+             ast0_do_bounds asts Ast0_gcon_list)
        };
        { lhs = NTgcon;
          rhs = [ T LParen; NT NTcommalist; T RParen ];
          semantic_action =
            (fun asts ->
              let commas = List.at asts 1 in
-             do_bounds asts (Ast0_gcon_tuple (ast0getlist commas)))
+             ast0_do_bounds asts (Ast0_gcon_tuple (ast0getlist commas)))
        };
        { lhs = NTgcon;
          rhs = [ NT NTqcon ];
          semantic_action =
            (fun asts ->
              let c = List.hd asts in
-             do_bounds asts (Ast0_gcon_qcon c))
+             ast0_do_bounds asts (Ast0_gcon_qcon c))
        };
        { lhs = NTqvar;
          rhs = [ T QVarId ];
