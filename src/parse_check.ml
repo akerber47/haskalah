@@ -185,9 +185,92 @@ and check_pat ast =
       raise (Parse_error (Printf.sprintf2
         "Expected pattern, got expression: at %d-%d\n"
         ast.blockstart ast.blockend))
-  in do_bound ast newnode
+  in do_boundcpy ast newnode
 
-
+(* Take in the 2 children of an Ast0_decl_bind, and verify that it's a valid
+ * function or pattern binding. Return Ast1_decl_<fun|pat>bind accordingly. *)
+and check_bind ast rhs =
+  (* Take in an Ast0_infixexp_*, and verify that it *is* a valid funlhs. That
+   * is, it contains 1 appropriate variable or varop, and the rest of it is
+   * patterns. Returns an ast Ast_funlhs_* *)
+  let rec check_funlhs ast =
+    match ast.node with
+    (* If we have list of aexps and first one is var, that's the function name
+     * and the other aexps should be apats. *)
+    | Ast0_infixexp_exp10 {
+        node = Ast0_exp10_aexps ({
+          node = Ast0_aexp_var a1}::a2s)} ->
+        Ast1_funlhs_fun (postparse_check a1, List.map check_pat a2s)
+    (* If we have list of aexps and first one is parenthetical, we have nested
+     * funlhs and other aexps should be apats. *)
+    | Ast0_infixexp_exp10 {
+        node = Ast0_exp10_aexps ({
+          node = Ast0_aexp_paren {
+            node = Ast0_exp (a1, None)}}::a2s)} ->
+        Ast1_funlhs_nested (check_funlhs a1, List.map check_pat a2s)
+    (* The tricky case - if we have operators, need to look through them until
+     * we find one that is a varop, that's the function (operator) name and the
+     * things on either side should be infixpats. *)
+    | Ast0_infixexp_op _ ->
+        (* Dig through until we find a varop. Return
+         * Some ( ast list, ast Ast0_varop, ast Ast0_infixexp_* )
+         * consisting of
+         * <stuff left of varop (in reverse order), varop, right of varop>
+         * stuff left of varop can be Ast0_exp10_* or Ast0_*leaf (the qop, if
+         * there are conops as well as varops).
+         * Return None if couldn't find any varop. *)
+        let rec find_varop acc ast =
+          match ast.node with
+          (* No operators left *)
+          | Ast0_infixexp_exp10 _ -> None
+          | Ast0_infixexp_op (a1,a2,a3) ->
+              (* Check if op is varop *)
+              match a2.node with
+              | Ast0_backquoted_leaf { token = QVarId }
+              | Ast0_backquoted_leaf { token = VarId }
+              | Ast0_leaf { token = QVarSym }
+              | Ast0_leaf { token = VarSym } ->
+                  Some ((a1::acc), a2, a3)
+              | _ ->
+                  (* If not, add to accumulator and recur on rhs infixexp *)
+                  find_varop (a2::(a1::acc)) a3
+          | _ -> assert false
+        (* Take in ast list of Ast0_exp10_* and Ast0_*leaf (qops) in reverse
+         * order, and build an infixexp from it. Basically, undo what we did
+         * above to get a working infixexp for the lhs. *)
+        and rebuild_lhs asts acc =
+          match asts with
+          | [] -> acc
+          (* Should always pull off exp10 and op together *)
+          | (a1::[]) -> assert false
+          | (a2::(a1::a0s)) ->
+              rebuild_lhs a0s
+                (Ast.ast0_do_bounds [a2;a1;acc] (Ast0_infixexp_op (a1,a2,acc)))
+        in
+        match find_varop [] ast with
+        | Some ((a1::a1s), a2, a3) ->
+            let lhs = rebuild_lhs a1s a1 in
+            do_boundcpy ast (Ast1_funlhs_funop
+              (check_pat lhs, postparse_check a2, check_pat a3))
+        | None -> raise (Parse_error (Printf.sprintf2
+            "Expected function or pattern lhs, got expression: at %d-%d\n"
+            ast.blockstart ast.blockend))
+    | _ -> raise (Parse_error (Printf.sprintf2
+        "Expected function or pattern lhs, got expression: at %d-%d\n"
+        ast.blockstart ast.blockend))
+  let patlhs =
+    (* XXX this is a terrible use of checked exceptions TODO fix *)
+    try
+      Some (check_pat ast)
+    with
+    | Parse_error _ -> None
+  in match patlhs with
+  (* Check if lhs is an infixpat. If so, this is a pattern binding. *)
+  | Some a1 ->
+      Ast1_decl_patbind (a1, postparse_check rhs)
+  (* Otherwise, verify that it's a function binding. *)
+  | None ->
+      Ast1_decl_funbind (check_funlhs ast, postparse_check rhs)
 
 (* Take in a (general) ast, and do context and pattern checks appropriately. *)
 and postparse_check ast =
