@@ -44,7 +44,7 @@ let rec check_context ast =
     | Ast0_btype_app ({
         node = Ast0_btype_atype {
           node = Ast0_atype_con {
-            node = Ast0_gtycon_con c}}
+            node = Ast0_gtycon_con c;_};_};_
         },a2) ->
           check_isclassrhs c a2
     | _ ->
@@ -71,7 +71,7 @@ let rec check_context ast =
     (* Otherwise, if parenthetical, we need to traverse the corresponding btype
      * (converting it to list of atypes) to check that the leftmost thing being
      * applied is a var *)
-    | Ast0_atype_paren { node = Ast0_type_btype a1 } ->
+    | Ast0_atype_paren { node = Ast0_type_btype a1;_ } ->
         let atypes =
           let rec go bt acc =
             match bt with
@@ -80,15 +80,15 @@ let rec check_context ast =
             | _ -> assert false
           in go a1.node []
         in
-        match atypes with
-        (* If so, build applied class constraint *)
-        | { node = Ast0_atype_var a1 }::a2s ->
-            Ast1_class_app (postparse_check c,
-              postparse_check a1, (List.map postparse_check a2s))
-        | _ ->
-            raise (Parse_error (Printf.sprintf2
-              "Illegal context: at %d-%d\n"
-              ast.blockstart ast.blockend))
+        (match atypes with
+         (* If so, build applied class constraint *)
+         | { node = Ast0_atype_var a1;_ }::a2s ->
+             Ast1_class_app (postparse_check c,
+               postparse_check a1, (List.map postparse_check a2s))
+         | _ ->
+             raise (Parse_error (Printf.sprintf2
+               "Illegal context: at %d-%d\n"
+               ast.blockstart ast.blockend)))
     | _ ->
         raise (Parse_error (Printf.sprintf2
           "Illegal context: at %d-%d\n"
@@ -126,23 +126,24 @@ and check_if_pat ast =
   | Ast0_infixexp_op (a1,a2,a3) ->
       (* Check that operator is qconop - qvarop is error *)
       (match a2.node with
-       | Ast0_backquoted_leaf { token = QConId }
-       | Ast0_backquoted_leaf { token = ConId }
-       | Ast0_leaf { token = QConSym }
-       | Ast0_leaf { token = ConSym }
-       | Ast0_leaf { token = RColon } ->
+       | Ast0_backquoted_leaf { token = QConId;_ }
+       | Ast0_backquoted_leaf { token = ConId;_ }
+       | Ast0_leaf { token = QConSym;_ }
+       | Ast0_leaf { token = ConSym;_ }
+       | Ast0_leaf { token = RColon;_ } ->
            (match check_if_pat a1, postparse_check a2, check_if_pat a3 with
             | (Some b1, b2, Some b3) ->
                 Some (Ast1_infixpat_op (b1,b2,b3))
-            | _ -> None))
+            | _ -> None)
+       | _ -> None)
   (* exp10s -> pat10s *)
   | Ast0_infixexp_exp10 a1 ->
       Option.map (fun a -> Ast1_infixpat_pat10 a) (check_if_pat a1)
   (* A single pattern is fine ... *)
   | Ast0_exp10_aexps (a1::[]) ->
-      Option.map Ast1_pat10_apat (check_if_pat a1)
+      Option.map (fun a -> Ast1_pat10_apat a) (check_if_pat a1)
   (* ... but can only apply one pattern to others if it's a constructor *)
-  | Ast0_exp10_aexps ({ node = Ast0_aexp_con a1 }::a2s) ->
+  | Ast0_exp10_aexps ({ node = Ast0_aexp_con a1;_ }::a2s) ->
       (match Util.option_mapM (List.map check_if_pat a2s) with
        | Some b2s -> Some (Ast1_pat10_con (postparse_check a1, b2s))
        | None -> None)
@@ -164,13 +165,13 @@ and check_if_pat ast =
   | Ast0_aexp_lbupdate (a1,a2s) ->
       (* Check that head is qcon - anything more complex is error *)
       (match a1.node with
-       | Ast0_leaf { token = QConId }
-       | Ast0_leaf { token = ConId }
-       | Ast0_parenthesized_leaf { token = QConSym }
-       | Ast0_parenthesized_leaf { token = ConSym }
-       | Ast0_parenthesized_leaf { token = RColon } ->
+       | Ast0_leaf { token = QConId;_ }
+       | Ast0_leaf { token = ConId;_ }
+       | Ast0_parenthesized_leaf { token = QConSym;_ }
+       | Ast0_parenthesized_leaf { token = ConSym;_ }
+       | Ast0_parenthesized_leaf { token = RColon;_ } ->
            (match Util.option_mapM (List.map check_if_pat a2s) with
-            | Some b2s -> Ast1_apat_lbpat (postparse_check a1, b2s)
+            | Some b2s -> Some (Ast1_apat_lbpat (postparse_check a1, b2s))
             | None -> None)
        | _ ->
            raise (Parse_error (Printf.sprintf2
@@ -178,7 +179,7 @@ and check_if_pat ast =
              ast.blockstart ast.blockend)))
   | Ast0_aexp_aspat (a1,a2) ->
       (match check_if_pat a2 with
-       | Some b2 -> Ast1_apat_as (postparse_check a1, b2)
+       | Some b2 -> Some (Ast1_apat_as (postparse_check a1, b2))
        | None -> None)
   | Ast0_aexp_irrefpat a1 ->
       Some (Ast1_apat_irref (postparse_check a1))
@@ -187,7 +188,7 @@ and check_if_pat ast =
   (* fbind -> fpat *)
   | Ast0_fbind (a1,a2) ->
       (match check_if_pat a2 with
-       | Some b2 -> Ast1_apat_fpat (postparse_check a1, b2)
+       | Some b2 -> Some (Ast1_fpat (postparse_check a1, b2))
        | None -> None)
   (* Finally, all other cases cannot appear in a pattern - fail *)
   | _ -> None
@@ -213,15 +214,17 @@ and check_bind ast rhs =
      * and the other aexps should be apats. *)
     | Ast0_infixexp_exp10 {
         node = Ast0_exp10_aexps ({
-          node = Ast0_aexp_var a1}::a2s)} ->
-        Ast1_funlhs_fun (postparse_check a1, List.map check_pat a2s)
+          node = Ast0_aexp_var a1;_}::a2s);_} ->
+        do_boundcpy ast
+          (Ast1_funlhs_fun (postparse_check a1, List.map check_pat a2s))
     (* If we have list of aexps and first one is parenthetical, we have nested
      * funlhs and other aexps should be apats. *)
     | Ast0_infixexp_exp10 {
         node = Ast0_exp10_aexps ({
           node = Ast0_aexp_paren {
-            node = Ast0_exp (a1, None)}}::a2s)} ->
-        Ast1_funlhs_nested (check_funlhs a1, List.map check_pat a2s)
+            node = Ast0_exp (a1, None);_};_}::a2s);_} ->
+        do_boundcpy ast
+          (Ast1_funlhs_nested (check_funlhs a1, List.map check_pat a2s))
     (* The tricky case - if we have operators, need to look through them until
      * we find one that is a varop, that's the function (operator) name and the
      * things on either side should be infixpats. *)
@@ -239,15 +242,15 @@ and check_bind ast rhs =
           | Ast0_infixexp_exp10 _ -> None
           | Ast0_infixexp_op (a1,a2,a3) ->
               (* Check if op is varop *)
-              match a2.node with
-              | Ast0_backquoted_leaf { token = QVarId }
-              | Ast0_backquoted_leaf { token = VarId }
-              | Ast0_leaf { token = QVarSym }
-              | Ast0_leaf { token = VarSym } ->
-                  Some ((a1::acc), a2, a3)
-              | _ ->
-                  (* If not, add to accumulator and recur on rhs infixexp *)
-                  find_varop (a2::(a1::acc)) a3
+              (match a2.node with
+               | Ast0_backquoted_leaf { token = QVarId;_ }
+               | Ast0_backquoted_leaf { token = VarId;_ }
+               | Ast0_leaf { token = QVarSym;_ }
+               | Ast0_leaf { token = VarSym;_ } ->
+                   Some ((a1::acc), a2, a3)
+               | _ ->
+                   (* If not, add to accumulator and recur on rhs infixexp *)
+                   find_varop (a2::(a1::acc)) a3)
           | _ -> assert false
         (* Take in ast list of Ast0_exp10_* and Ast0_*leaf (qops) in reverse
          * order, and build an infixexp from it. Basically, undo what we did
@@ -256,7 +259,7 @@ and check_bind ast rhs =
           match asts with
           | [] -> acc
           (* Should always pull off exp10 and op together *)
-          | (a1::[]) -> assert false
+          | (_::[]) -> assert false
           | (a2::(a1::a0s)) ->
               rebuild_lhs a0s
                 (Ast.ast0_do_bounds [a2;a1;acc] (Ast0_infixexp_op (a1,a2,acc)))
@@ -266,7 +269,7 @@ and check_bind ast rhs =
              let lhs = rebuild_lhs a1s a1 in
              do_boundcpy ast (Ast1_funlhs_funop
                (check_pat lhs, postparse_check a2, check_pat a3))
-         | None -> raise (Parse_error (Printf.sprintf2
+         | _ -> raise (Parse_error (Printf.sprintf2
              "Expected function or pattern lhs, got expression: at %d-%d\n"
              ast.blockstart ast.blockend)))
     | _ -> raise (Parse_error (Printf.sprintf2
@@ -473,7 +476,7 @@ and postparse_check ast =
   | Ast0_stmt_let a1s ->
       Ast1_stmt_let (List.map postparse_check a1s)
   | Ast0_stmt_empty ->
-      (Ast0_stmt_empty)
+      (Ast1_stmt_empty)
   | Ast0_fbind (a1, a2) ->
       Ast1_fbind (postparse_check a1, postparse_check a2)
   | Ast0_gcon_unit ->
