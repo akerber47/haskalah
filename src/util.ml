@@ -1,6 +1,16 @@
 open Batteries
 ;;
 
+let rec option_mapM olst =
+  match olst with
+  | [] -> Some []
+  | (None::_) -> None
+  | ((Some x)::oxs) ->
+      match option_mapM oxs with
+      | Some xs -> Some (x::xs)
+      | None -> None
+;;
+
 let file_to_string f =
   BatIO.read_all (open_in f)
 ;;

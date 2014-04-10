@@ -1,6 +1,9 @@
 open Batteries
 ;;
 
+(* Return Some if all are Some, None if any are None *)
+val option_mapM : ('a option) list -> ('a list) option
+
 (* Given filename, reads in the entire file as a string *)
 val file_to_string : string -> string
 
