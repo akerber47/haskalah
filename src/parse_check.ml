@@ -121,7 +121,7 @@ and check_if_pat ast =
   (* Convert exps -> pats *)
   (* Patterns cannot have type decls - (a1, Some _) is error. *)
   | Ast0_exp (a1, None) ->
-      Option.map Ast1_pat (check_if_pat a1)
+      Option.map (fun a -> Ast1_pat a) (check_if_pat a1)
   (* infixexps -> infixpats *)
   | Ast0_infixexp_op (a1,a2,a3) ->
       (* Check that operator is qconop - qvarop is error *)
@@ -137,7 +137,7 @@ and check_if_pat ast =
           | _ -> None
   (* exp10s -> pat10s *)
   | Ast0_infixexp_exp10 a1 ->
-      Option.map Ast1_infixpat_pat10 (check_if_pat a1)
+      Option.map (fun a -> Ast1_infixpat_pat10 a) (check_if_pat a1)
   (* A single pattern is fine ... *)
   | Ast0_exp10_aexps (a1::[]) ->
       Option.map Ast1_pat10_apat (check_if_pat a1)
@@ -154,11 +154,13 @@ and check_if_pat ast =
   | Ast0_aexp_literal a1 ->
       Some (Ast1_apat_literal (postparse_check a1))
   | Ast0_aexp_paren a1 ->
-      Option.map Ast1_apat_paren (check_if_pat a1)
+      Option.map (fun a -> Ast1_apat_paren a) (check_if_pat a1)
   | Ast0_aexp_tuple a1s ->
-      Option.map Ast1_apat_tuple (Util.option_mapM (List.map check_if_pat a1s))
+      Option.map (fun a -> Ast1_apat_tuple a)
+        (Util.option_mapM (List.map check_if_pat a1s))
   | Ast0_aexp_list a1s ->
-      Option.map Ast1_apat_list (Util.option_mapM (List.map check_if_pat a1s))
+      Option.map (fun a -> Ast1_apat_list a)
+        (Util.option_mapM (List.map check_if_pat a1s))
   | Ast0_aexp_lbupdate (a1,a2s) ->
       (* Check that head is qcon - anything more complex is error *)
       match a1.node with
