@@ -32,16 +32,19 @@ executables, not native code.
 
 # Implementation Details #
 
-The source language is Haskell 98, as specified in the Revised Report
-* http://www.haskell.org/onlinereport/
-It includes some features (fixity resolution, better line comments,
-pattern guards, no n+k patterns, etc) from Haskell 2010. See
-* http://www.haskell.org/onlinereport/haskell2010/
-* http://www.haskell.org/haskellwiki/Haskell_2010
-for details of these changes to the report.
+The source language is mostly Haskell 98, as specified in the [Revised
+Report](http://www.haskell.org/onlinereport/).  Some features of [Haskell
+2010](http://www.haskell.org/haskellwiki/Haskell_2010) are included:
+* Fixity resolution
+* Line comment syntax
+* Remove n+k patterns
+* Remove datatype contexts
 
-Some features of Haskell 98/10 are not supported. In particular, we do not
-include a full standard library, and do not support unicode.
+Some features of Haskell 98/10 are not supported. In particular:
+* Very, very small standard library
+* No unary negation
+* No implicit closing brace on parser error
+* No strict fields
 
 We do not support any of the fancy modes of a full-featured Haskell compiler:
 no `--interactive`, no `--make`, no `-e`.
