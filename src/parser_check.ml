@@ -284,6 +284,50 @@ and check_bind ast rhs =
   | None ->
       Ast1_decl_funbind (check_funlhs ast, postparse_check rhs)
 
+(* Take in ast Ast0_topdecl_import, and check that words used are in fact
+ * 'qualified', 'as', and/or 'hiding'. Return ast1node. *)
+and check_import ast oa1 a2 oa34 oa5 =
+  let check_impspec ast =
+    match ast.node with
+    | Ast0_impspec (Some ({node =
+        (Ast0_leaf {token = VarId; contents = "hiding"; _}); _} as a1),a2s) ->
+        Ast1_impspec (Some (postparse_check a1), List.map postparse_check a2s)
+    | Ast0_impspec (Some _, _) ->
+        raise (Parse_error (Printf.sprintf2
+          "Expected 'hiding' keyword: at %d-%d\n"
+          ast.blockstart ast.blockend))
+    | Ast0_impspec (None, a2s) ->
+        Ast1_impspec (None, List.map postparse_check a2s)
+    | _ -> assert false
+  in
+  let ob1 =
+    match oa1 with
+    | Some ({node =
+        (Ast0_leaf {token = VarId; contents = "qualified"; _}); _} as a1) ->
+        Some (postparse_check a1)
+    | Some _ ->
+        raise (Parse_error (Printf.sprintf2
+          "Expected 'qualified' keyword: at %d-%d\n"
+          ast.blockstart ast.blockend))
+    | None -> None
+  and b2 = postparse_check a2
+  and ob34 =
+    match oa34 with
+    | Some (({node =
+        (Ast0_leaf {token = VarId; contents = "as"; _}); _} as a3), a4) ->
+        Some (postparse_check a3, postparse_check a4)
+    | Some _ ->
+        raise (Parse_error (Printf.sprintf2
+          "Expected 'as' keyword: at %d-%d\n"
+          ast.blockstart ast.blockend))
+    | None -> None
+  and ob5 =
+    match oa5 with
+    | Some a5 -> Some (do_boundcpy a5 (check_impspec a5))
+    | None -> None
+  in
+  Ast1_topdecl_import (ob1, b2, ob34, ob5)
+
 (* Take in a (general) ast, and do context and pattern checks appropriately. *)
 and postparse_check ast =
   (* Variants that actually require transformations at the top. All other
@@ -336,14 +380,8 @@ and postparse_check ast =
       Ast1_export_type (postparse_check a1,Option.map (List.map postparse_check) oa2s)
   | Ast0_export_module a1 ->
       Ast1_export_module (postparse_check a1)
-  | Ast0_topdecl_import (oa1,a2,Some (a3,a4),oa5) ->
-      Ast1_topdecl_import (Option.map postparse_check oa1,postparse_check a2,
-        Some (postparse_check a3,postparse_check a4),Option.map postparse_check oa5)
-  | Ast0_topdecl_import (oa1,a2,None,oa5) ->
-      Ast1_topdecl_import (Option.map postparse_check oa1,postparse_check a2,
-        None,Option.map postparse_check oa5)
-  | Ast0_impspec (oa1,a2s) ->
-      Ast1_impspec (Option.map postparse_check oa1,List.map postparse_check a2s)
+  | Ast0_topdecl_import (oa1,a2,oa34,oa5) -> check_import ast oa1 a2 oa34 oa5
+  | Ast0_impspec _ -> assert false (* should be handled by check_import *)
   | Ast0_import_var a1 ->
       Ast1_import_var (postparse_check a1)
   | Ast0_import_type (a1,oa2s) ->
