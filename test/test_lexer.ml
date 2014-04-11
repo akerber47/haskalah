@@ -6,7 +6,7 @@ open Batteries
 
 open Types
 ;;
-open Lex
+open Lexer
 ;;
 
 (******** prelex tests *********)
@@ -47,7 +47,7 @@ end
 
 let lex_file f =
   let src = Util.file_to_string f in
-  ignore(Lex.unlayout src (Lex.postlex src (Lex.prelex src)))
+  ignore(Lexer.unlayout src (Lexer.postlex src (Lexer.prelex src)))
 ;;
 
 (* Make sure all token types end / transition correctly. *)

@@ -34,6 +34,6 @@ let () = begin
   print_string (dump s);
   print_string (dump (Parse.parse (Queue.create ())));
   *)
-  print_string (dump (List.of_enum (Queue.enum (Lex.prelex "foobar"))))
+  print_string (dump (List.of_enum (Queue.enum (Lexer.prelex "foobar"))))
 end
 ;;

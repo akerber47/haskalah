@@ -7,8 +7,8 @@ open Batteries
 (* Make sure the parser doesn't gag on the given file *)
 let lex_and_parse f =
   let src = Util.file_to_string f in
-  ignore(Util.dbg "%a" print_guess (Parse_check.postparse_check (Parse.parse
-    (Lex.unlayout src (Lex.postlex src (Lex.prelex src))))))
+  ignore(Util.dbg "%a" print_guess (Parser_check.postparse_check (Parser.parse
+    (Lexer.unlayout src (Lexer.postlex src (Lexer.prelex src))))))
 ;;
 
 let make_test_list name lst =
