@@ -52,7 +52,6 @@ no `--interactive`, no `--make`, no `-e`.
 We compile to LLVM, not native code.
 
 See additional ideas in
-* http://www.cs.tufts.edu/~nr/comp150fp/ss.html
 * http://prog21.dadgum.com/30.html
 * http://compilers.iecc.com/crenshaw/
 * http://www.cs.indiana.edu/~dyb/pubs/nano-jfp.pdf
