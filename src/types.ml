@@ -561,6 +561,14 @@ and ast1node =
   | Ast1_leaf of lexeme
   (* No Ast1_partial_list - ast is already fully built *)
 
+(* Names (untyped identifiers) used in source program. *)
+type name =
+  (* Internal name: raw name + unique disambiguator *)
+  | Name_int of string * int
+  (* External name: module namespace + raw name + unique disambiguator. Note
+   * that this is also used for top-level names in the current module. *)
+  | Name_ext of string * string * int
+
 (* Lex error: index in input string where it occurred, and error message. *)
 exception Lex_error of int * string
 ;;
