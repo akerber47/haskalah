@@ -403,6 +403,20 @@ and ast0node =
    * copied out by higher-level node once list is complete. *)
   | Ast0_partial_list of ast0 list
 
+(* Names (untyped identifiers) used in source program. *)
+type name =
+  (* Internal name: raw name + unique disambiguator *)
+  | Name_int of string * int
+  (* External name: module namespace + raw name. Does not require
+   * disambiguation, as there can only be one entity in the top-level of any
+   * module with a given name. Note that this is also used for top-level names
+   * in the current module. *)
+  | Name_ext of string * string
+
+type rleaf =
+  | Rleaf_name of name
+  | Rleaf_literal of literal
+
 (* Output of parse_check. Same as ast0 except where indicated. *)
 type ast1 = {
   node1 : ast1node;
@@ -484,6 +498,7 @@ and ast1node =
   | Ast1_gdrhs of ast1 * ast1
   (* infixexp [[context] type] *)
   | Ast1_exp of ast1 * (ast1 option * ast1) option
+  (* After resolve_fixities, will be infixexp qop infixexp *)
   | Ast1_infixexp_op of ast1 * ast1 * ast1
   | Ast1_infixexp_exp10 of ast1
   (* apat* exp - was aexp* exp *)
@@ -524,6 +539,7 @@ and ast1node =
   (* infixpat *)
   | Ast1_pat of ast1
   (* pat10 qconop infixpat *)
+  (* After resolve_fixities, will be infixpat qconop infixpat *)
   | Ast1_infixpat_op of ast1 * ast1 * ast1
   (* pat10 *)
   | Ast1_infixpat_pat10 of ast1
@@ -560,14 +576,16 @@ and ast1node =
   | Ast1_backquoted_leaf of lexeme
   | Ast1_leaf of lexeme
   (* No Ast1_partial_list - ast is already fully built *)
+  (* Used in output of rename. Leaves now consist of names or literals rather
+   * than simply lexemes. This is really terrible - we should be using
+   * parametrized types and stuff - but this is quick and dirty. Note that
+   * these are the only possibilities: all reserved words, special chars, etc
+   * are been eliminated by parsing to abstract syntax EXCEPT for RColon, which
+   * will be translated to Prelude.(:) (ie a name). *)
+  | Ast1_parenthesized_rleaf of rleaf
+  | Ast1_backquoted_rleaf of rleaf
+  | Ast1_rleaf of rleaf
 
-(* Names (untyped identifiers) used in source program. *)
-type name =
-  (* Internal name: raw name + unique disambiguator *)
-  | Name_int of string * int
-  (* External name: module namespace + raw name + unique disambiguator. Note
-   * that this is also used for top-level names in the current module. *)
-  | Name_ext of string * string * int
 
 (* Lex error: index in input string where it occurred, and error message. *)
 exception Lex_error of int * string
