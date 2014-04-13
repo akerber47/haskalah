@@ -594,3 +594,7 @@ exception Lex_error of int * string
 (* Parse error: error message *)
 exception Parse_error of string
 ;;
+
+(* Rename error: error message *)
+exception Rename_error of string
+;;
