@@ -23,6 +23,12 @@ let leaf_contents ast =
 ;;
 
 let build_globals ast =
+  (* Look up name of module currently being compiled. *)
+  let curmod =
+    match ast.node with
+    | Ast1_module (Some m, _, _) -> leaf_contents m
+    | _ -> "Main" (* Default for unnamed modules *)
+  in
   (* Return a list of all the top-level identifiers bound by the given
    * top-level declaration.
    * ast1 <node=Ast1_topdecl_*> -> string list *)
@@ -33,28 +39,25 @@ let build_globals ast =
    * global environment. Add name conflicts where appropriate. Note that we
    * don't bother with helpful error messages for name conflicts.
    * The info is:
-   * - prefix/qualifier to assign these names when adding to globals
+   * - prefix to add these names to globals under (the "as" module)
    * - bool for whether or not to add the corresp unqualified names
-   * - pairs (real_source_module, name) of things to add
+   * - triples (namespace, rawname, real_source_module) of things to add
    *   (note that real source module for a name might require a bunch of nested
-   *   imports to find, but this is taken care of in get_import_names)
-   * globals -> string * bool * (string * string) list -> globals *)
+   *   imports to dig up, but this is taken care of in get_import_names)
+   * globals -> string * bool * (namespace * string * string) list -> globals *)
   and add_names glb (pfx, add_unq, names) =
     List.fold_left
-      (fun g (srcmod,s) ->
+      (fun g (pn,srcmod) ->
         if add_unq then
-          { g with qualified = map_add_conflict g.qualified (pfx,s) srcmod;
-                   unqualified = map_add_conflict g.unqualified s srcmod }
+          { g with qualified = map_add_conflict g.qualified (pn,pfx)
+                                 (Name_global (pn,srcmod));
+                   unqualified = map_add_conflict g.unqualified pn
+                                 (Name_global (pn,srcmod))}
         else
-          { g with qualified = map_add_conflict g.qualified (pfx,s) srcmod })
+          { g with qualified = map_add_conflict g.qualified (pn,pfx)
+                                 (Name_global (pn,srcmod))})
       glb
       names
-  in
-  (* Look up name of module currently being compiled. *)
-  let cm =
-    match ast.node with
-    | Ast1_module (Some m, _, _) -> leaf_contents m
-    | _ -> "Main" (* Default for unnamed modules *)
   in
   match ast.node with
   | Ast1_module (_, _, { node = Ast1_body topdecls; _ }) ->
@@ -65,8 +68,6 @@ let build_globals ast =
         ((cm,true,mynames)::imported_names)
   | _ -> assert false
 ;;
-
-type environment = (prename, name) Map.t
 
 (* Look up unqualified identifier. Error if ambiguous. None if not found.
  * globals -> environment -> string -> string option *)

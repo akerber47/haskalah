@@ -410,19 +410,19 @@ type namespace =
   | Ns_tc   (* Type constructors *)
   | Ns_cls  (* Classes *)
 
-(* Almost a name - we've identified the raw string and namespace, but not yet
- * the global module / unique identifier. *)
-type prename = namespace * string
+(* Almost a name - we've identified the base string and namespace (and any
+ * existing prefix), but not yet the real src module or unique identifier. *)
+type prename = namespace * string option * string
 
 (* Names (untyped identifiers) used in source program. *)
 type name =
   (* Local name: namespace + raw name + unique disambiguator *)
-  | Name_local of prename * int
+  | Name_local of namespace * string * int
   (* Global name: namespace + raw name + module. Does not require
    * disambiguation, as there can only be one entity in the top-level of any
    * module with a given name. Note that this is also used for top-level names
    * in the current module. *)
-  | Name_global of prename * string
+  | Name_global of namespace * string * string
 
 type rleaf =
   | Rleaf_name of name
