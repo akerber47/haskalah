@@ -403,15 +403,26 @@ and ast0node =
    * copied out by higher-level node once list is complete. *)
   | Ast0_partial_list of ast0 list
 
+type namespace =
+  | Ns_var  (* Ordinary values *)
+  | Ns_data (* Data constructors *)
+  | Ns_tv   (* Type variables *)
+  | Ns_tc   (* Type constructors *)
+  | Ns_cls  (* Classes *)
+
+(* Almost a name - we've identified the raw string and namespace, but not yet
+ * the global module / unique identifier. *)
+type prename = namespace * string
+
 (* Names (untyped identifiers) used in source program. *)
 type name =
-  (* Internal name: raw name + unique disambiguator *)
-  | Name_int of string * int
-  (* External name: module namespace + raw name. Does not require
+  (* Local name: namespace + raw name + unique disambiguator *)
+  | Name_local of prename * int
+  (* Global name: namespace + raw name + module. Does not require
    * disambiguation, as there can only be one entity in the top-level of any
    * module with a given name. Note that this is also used for top-level names
    * in the current module. *)
-  | Name_ext of string * string
+  | Name_global of prename * string
 
 type rleaf =
   | Rleaf_name of name

@@ -1,14 +1,13 @@
 open Batteries
 open Types
 
-(** For each (qualified or unqualified) identifier, look up the module in which
- * it was *really* defined - not necessarily the one that most recently
- * exported it. Store None as value in case of ambiguity. Also, keep track of
+(** For each (qualified or unqualified) identifier, look up the corresponding
+ * actual name. Store None as value in case of ambiguity. Also, keep track of
  * the current module together with all of this. *)
 type globals = {
   curmod : string
-  unqualified : (string, string option) Map.t;
-  qualified : (string * string, string option) Map.t
+  unqualified : (prename, name option) Map.t;
+  qualified : (prename * string, name option) Map.t
 }
 
 (** Take in an ast and gather all the top-level names. These could be imported
