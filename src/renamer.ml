@@ -3,12 +3,32 @@ open Batteries
 open Types
 ;;
 
+(* Add the given entry to the map, unless that key is already present, in which
+ * case indicate the conflict by storing None for that key.
+ * ('a, 'b option) Map.t -> 'a -> 'b -> ('a, 'b option) Map.t *)
+let map_add_conflict m x y =
+  if Map.mem x m then
+    Map.add x None m
+  else
+    Map.add x (Some y) m
+;;
+
+(* ast1 <Ast1_*leaf> -> string *)
+let leaf_contents ast =
+  match ast with
+  | Ast1_parenthesized_leaf l -> l.contents
+  | Ast1_backquoted_leaf l -> l.contents
+  | Ast1_leaf l -> l.contents
+  | _ -> assert false
+;;
+
 let build_globals ast =
   (* Return a list of all the top-level identifiers bound by the given
    * top-level declaration.
    * ast1 <node=Ast1_topdecl_*> -> string list *)
   let get_topdecl_names ast =
-    (*TODO*)
+    match ast.node with
+    | Ast1_topdecl_
   (* Given some info about a module's imported names, add those names to the
    * global environment. Add name conflicts where appropriate. Note that we
    * don't bother with helpful error messages for name conflicts.
@@ -19,25 +39,34 @@ let build_globals ast =
    *   (note that real source module for a name might require a bunch of nested
    *   imports to find, but this is taken care of in get_import_names)
    * globals -> string * bool * (string * string) list -> globals *)
-  and add_names glb (prefix, add_unq, names) =
-
+  and add_names glb (pfx, add_unq, names) =
+    List.fold_left
+      (fun g (srcmod,s) ->
+        if add_unq then
+          { g with qualified = map_add_conflict g.qualified (pfx,s) srcmod;
+                   unqualified = map_add_conflict g.unqualified s srcmod }
+        else
+          { g with qualified = map_add_conflict g.qualified (pfx,s) srcmod })
+      glb
+      names
   in
   (* Look up name of module currently being compiled. *)
   let cm =
     match ast.node with
-    | Ast1_module (Some m, _, _) -> m
+    | Ast1_module (Some m, _, _) -> leaf_contents m
     | _ -> "Main" (* Default for unnamed modules *)
   in
   match ast.node with
   | Ast1_module (_, _, { node = Ast1_body topdecls; _ }) ->
       let mynames = List.concat (List.map get_topdecl_names topdecls)
       and imported_names = Manager.get_import_names ast
-      foldl add_names
+      List.fold_left add_names
         { curmod = cm; unqualified = Map.empty; qualified = Map.empty }
         ((cm,true,mynames)::imported_names)
+  | _ -> assert false
+;;
 
-
-type environment = (string, string) Map.t
+type environment = (prename, name) Map.t
 
 (* Look up unqualified identifier. Error if ambiguous. None if not found.
  * globals -> environment -> string -> string option *)
