@@ -13,6 +13,29 @@ let map_add_conflict m x y =
     Map.add x (Some y) m
 ;;
 
+(* Remove consecutive duplicates from a list, with the caveat that only
+ * duplicated elements where all duplicates have a true flag can be removed in
+ * this way. Return the resulting list without those flags.
+ * ('a -> 'a  -> bool) -> ('a * bool) list -> 'a list *)
+let uniq_consecutive_flag eq lst =
+  let (newlst, _) = List.fold_left
+    (fun (acc,lastflagged) (x,flag) ->
+      if flag then
+        match lastflagged with
+        (* If we match last flagged, drop this duplicate from list *)
+        | Some y when eq x y -> (acc,lastflagged)
+        (* Otherwise, this is the new last flagged, keep in list *)
+        | Some _
+        | None -> (acc @ [x], Some x)
+      else
+        (* Otherwise, there is no last flagged, keep in list *)
+        (acc @ [x], None))
+    ([],None)
+    lst
+  in
+  newlst
+;;
+
 (* Look up the given prename in the given environment. Error if ambiguous.
  * None if not present.
  * environment -> prename -> name option *)
@@ -93,6 +116,7 @@ let decl_get_binds ast =
   | Ast1_decl_empty -> ([], false)
   | _ -> assert false
 ;;
+
 
 let build_globals ast =
   (* Look up name of module currently being compiled. *)
@@ -210,14 +234,31 @@ let build_globals ast =
                              (Name_global (pn,srcmod))
       glbenv
       names
+  (* Check that all the global names defined by the given triples are unique.
+   * Raise error on any duplicates.
+   * (namespace * string * string) list -> unit *)
+  and check_unique lst =
+    List.iter
+      (fun gp ->
+        if List.length gp > 1 then
+          let (_, id, _) = List.hd gp in
+          raise (Name_error (Printf.sprintf2
+            "Identifier '%s' already defined" id)))
+      (List.group (=) lst)
   in
   match ast.node with
   | Ast1_module (_, _, { node = Ast1_body topdecls; _ }) ->
-      let mynames = List.concat (List.map get_topdecl_names topdecls)
+      (* Get all names from top-level declarations in current file, combining
+       * adjacent function bindings. *)
+      let mynames = List.concat (uniq_consecutive_flag (=)
+        (List.map get_topdecl_names topdecls))
       and imported_names = Manager.get_import_names ast
-      List.fold_left add_names
-        Map.empty
-        ((cm,true,mynames)::imported_names)
+      in begin
+        check_unique mynames;
+        List.fold_left add_names
+          Map.empty
+          ((cm,true,mynames_dedup)::imported_names)
+      end
   | _ -> assert false
 ;;
 
