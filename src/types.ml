@@ -500,7 +500,8 @@ and ast1node =
   | Ast1_scontext of ast1 list
   | Ast1_simpleclass of ast1 * ast1
   | Ast1_simpletype of ast1 * ast1 list
-  | Ast1_constr_con of ast1
+  (* con atype* *)
+  | Ast1_constr_con of ast1 * ast1 list
   | Ast1_constr_conop of ast1 * ast1 * ast1
   | Ast1_constr_fields of ast1 * ast1 list
   | Ast1_newconstr_con of ast1 * ast1

@@ -328,6 +328,24 @@ and check_import ast oa1 a2 oa34 oa5 =
   in
   Ast1_topdecl_import (ob1, b2, ob34, ob5)
 
+(* Take in ast Ast0_btype_* that should represent a data constructor
+ * declaration, and return an Ast1_constr_con *)
+and check_constr ast =
+  (* ast Ast0_btype_* -> ast Ast1_atype_* list -> ast Ast1_constr_con *)
+  let rec do_btype b_ast acc =
+    match b_ast.node with
+    | Ast0_btype_app (a1,a2) ->
+        do_btype a1 ((postparse_check a2)::acc)
+    | Ast0_btype_atype { node = Ast0_atype_con a1; _} ->
+        Ast1_constr_con (postparse_check a1, acc)
+    | Ast0_btype_atype _ ->
+        raise (Parse_error (Printf.sprintf2
+          "Invalid data constructor: at %d-%d\n"
+          b_ast.blockstart b_ast.blockend))
+    | _ -> assert false
+  in
+  do_btype ast []
+
 (* Take in a (general) ast, and do context and pattern checks appropriately. *)
 and postparse_check ast =
   (* Variants that actually require transformations at the top. All other
@@ -369,6 +387,9 @@ and postparse_check ast =
       raise (Parse_error (Printf.sprintf2
         "Unexpected type context: at %d-%d\n" ast.blockstart
         ast.blockend))
+  (* Convert data constructors by separating out constructor id *)
+  | Ast0_constr_con a1 ->
+      check_constr a1
   (* All of the following: directly convert ast0 to ast1 *)
   | Ast0_module (oa1, oa2s, a3) ->
       Ast1_module (Option.map postparse_check oa1, Option.map (List.map postparse_check) oa2s, postparse_check a3)
@@ -438,8 +459,6 @@ and postparse_check ast =
       Ast1_simpleclass (postparse_check a1,postparse_check a2)
   | Ast0_simpletype (a1,a2s) ->
       Ast1_simpletype (postparse_check a1,List.map postparse_check a2s)
-  | Ast0_constr_con a1 ->
-      Ast1_constr_con (postparse_check a1)
   | Ast0_constr_conop (a1,a2,a3) ->
       Ast1_constr_conop (postparse_check a1,postparse_check a2,postparse_check a3)
   | Ast0_constr_fields (a1,a2s) ->
