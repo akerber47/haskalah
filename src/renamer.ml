@@ -71,7 +71,8 @@ let rec pat_get_binds ast =
 
 (* Return a list of identifiers bound in function or pattern bindings in the
  * given declaration. Empty list if not a function or pattern binding.
- * ast1 <Ast1_decl_*> -> string list *)
+ * Also, return true if function binding, false otherwise.
+ * ast1 <Ast1_decl_*> -> string list * bool *)
 let decl_get_binds ast =
   match ast.node with
   | Ast1_decl_funbind (funlhs_ast, _) ->
@@ -84,12 +85,12 @@ let decl_get_binds ast =
         (* (f x y) z = ..." declares f *)
         | Ast1_funlhs_nested (nsubfl, _) -> do_funlhs nsubfl
       in
-      do_funlhs funlhs_ast
+      (do_funlhs funlhs_ast, true)
   | Ast1_decl_patbind (infixpat_ast, _) ->
-      pat_get_binds infixpat_ast
+      (pat_get_binds infixpat_ast, false)
   | Ast1_decl_type _
   | Ast1_decl_fixity _
-  | Ast1_decl_empty -> []
+  | Ast1_decl_empty -> ([], false)
   | _ -> assert false
 ;;
 
@@ -102,15 +103,17 @@ let build_globals ast =
   in
   (* Return a list of all the top-level identifiers bound by the given
    * top-level declaration, along with namespace and srcmod info to feed
-   * into add_names.
-   * ast1 <node=Ast1_topdecl_*> -> (namespace * string * string) list *)
+   * into add_names. Also, return true if function binding, false otherwise.
+   * This is so we can combine multi-line function declaration into one
+   * declared identifier.
+   * ast1 <node=Ast1_topdecl_*> -> (namespace * string * string) list * bool *)
   let get_topdecl_names ast =
     match ast.node with
     (* "type T a b = t" declares T *)
     | Ast1_topdecl_type (
       { node = Ast1_simpletype (
         { node = nT; _},_);_},_) ->
-          [(Ns_tc, leaf_contents nT, curmod)]
+          [(Ns_tc, leaf_contents nT, curmod)], false
     (* "newtype T a b = N t" declares T and N *)
     | Ast1_topdecl_newtype (
       { node = Ast1_simpletype (
@@ -118,7 +121,7 @@ let build_globals ast =
       { node = Ast1_newconstr_con (
         { node = nN; _},_);_},_) ->
           [(Ns_tc, leaf_contents nT, curmod);
-           (Ns_data, leaf_contents nN, curmod)]
+           (Ns_data, leaf_contents nN, curmod)], false
     (* "newtype T a b = N { f :: t }" declares T, N, and f *)
     | Ast1_topdecl_newtype (
       { node = Ast1_simpletype (
@@ -128,7 +131,7 @@ let build_globals ast =
         { node = nf; _},_);_},_) ->
           [(Ns_tc, leaf_contents nT, curmod);
            (Ns_data, leaf_contents nN, curmod);
-           (Ns_var, leaf_contents nf, curmod)]
+           (Ns_var, leaf_contents nf, curmod)], false
     (* Similarly for data declarations, except multiple constructors (and
      * constructors can now be operators)
      * "data T a b = N1 t | N2 t | ..." declares T (at least) *)
@@ -159,7 +162,7 @@ let build_globals ast =
           | _ -> assert false
         in
         (Ns_tc, leaf_contents nT, curmod)::
-          (List.concat (List.map do_constr constrs))
+          (List.concat (List.map do_constr constrs)), false
     (* "class ... => C a where ..." declares C (at least) *)
     | Ast1_topdecl_class (_, { node = nC; _}, _, cdecls) ->
         let do_cdecl c_ast =
@@ -171,15 +174,16 @@ let build_globals ast =
           | _ -> []
         in
         (Ns_class, leaf_contents nC, curmod)::
-          (List.concat (List.map do_cdecl cdecls))
+          (List.concat (List.map do_cdecl cdecls)), false
     (* instance and default declarations do not affect global namespace *)
-    | Ast1_topdecl_instance _ -> []
-    | Ast1_topdecl_default _ -> []
+    | Ast1_topdecl_instance _
+    | Ast1_topdecl_default _ -> [], false
     (* Finally, any other top-level declarations work just like inner
      * declarations (except that they're at top level. *)
     | Ast1_topdecl_decl { node = d; _} ->
-        List.map (fun id -> (Ns_var, id, curmod))
-          (List.concat (decl_get_binds d))
+        let (binds,isfun) = decl_get_binds d
+        in
+        (List.map (fun id -> (Ns_var, id, curmod)) binds), isfun
     | _ -> assert false
   (* Given some info about a module's imported names, add those names to the
    * global environment. Add name conflicts where appropriate. Note that we

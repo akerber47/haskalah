@@ -424,6 +424,14 @@ type name =
    * in the current module. *)
   | Name_global of namespace * string * string
 
+(* Literals used in source program *)
+type literal =
+  | Lit_num of int
+  | Lit_frac of float
+  | Lit_char of char
+  | Lit_string of string
+
+(* A "post-rename leaf" *)
 type rleaf =
   | Rleaf_name of name
   | Rleaf_literal of literal
