@@ -878,11 +878,12 @@ let haskell_acfg = {
          semantic_action = singleton_action
        };
        { lhs = NTconstr;
-         rhs = [ NT NTbtype ];
+         rhs = [ NT NTcon; NT NTbtype ];
          semantic_action =
            (fun asts ->
-             let t = List.hd asts in
-             ast0_do_bounds asts (Ast0_constr_con t))
+             let c = List.hd asts
+             and t = List.at asts 1 in
+             ast0_do_bounds asts (Ast0_constr_con (c,t)))
        };
        { lhs = NTconstr;
          rhs = [ NT NTbtype; NT NTconop; NT NTbtype ];

@@ -70,7 +70,7 @@ let rec ast0_general_foldl_helper pref postf depth acc ast =
     | Ast0_scontext a1s -> a1s
     | Ast0_simpleclass (a1,a2) -> [a1;a2]
     | Ast0_simpletype (a1,a2s) -> a1::a2s
-    | Ast0_constr_con a1 -> [a1]
+    | Ast0_constr_con (a1,a2) -> [a1;a2]
     | Ast0_constr_conop (a1,a2,a3) -> [a1;a2;a3]
     | Ast0_constr_fields (a1,a2s) -> a1::a2s
     | Ast0_newconstr_con (a1,a2) -> [a1;a2]

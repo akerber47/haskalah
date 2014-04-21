@@ -438,8 +438,8 @@ and postparse_check ast =
       Ast1_simpleclass (postparse_check a1,postparse_check a2)
   | Ast0_simpletype (a1,a2s) ->
       Ast1_simpletype (postparse_check a1,List.map postparse_check a2s)
-  | Ast0_constr_con a1 ->
-      Ast1_constr_con (postparse_check a1)
+  | Ast0_constr_con (a1,a2) ->
+      Ast1_constr_con (postparse_check a1,postparse_check a2s)
   | Ast0_constr_conop (a1,a2,a3) ->
       Ast1_constr_conop (postparse_check a1,postparse_check a2,postparse_check a3)
   | Ast0_constr_fields (a1,a2s) ->

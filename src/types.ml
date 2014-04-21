@@ -276,8 +276,8 @@ and ast0node =
   | Ast0_simpleclass of ast0 * ast0
   (* conid varid* *)
   | Ast0_simpletype of ast0 * ast0 list
-  (* btype *)
-  | Ast0_constr_con of ast0
+  (* con btype *)
+  | Ast0_constr_con of ast0 * ast0
   (* btype conop btype *)
   | Ast0_constr_conop of ast0 * ast0 * ast0
   (* con fielddecl* *)
@@ -492,7 +492,7 @@ and ast1node =
   | Ast1_scontext of ast1 list
   | Ast1_simpleclass of ast1 * ast1
   | Ast1_simpletype of ast1 * ast1 list
-  | Ast1_constr_con of ast1
+  | Ast1_constr_con of ast1 * ast1
   | Ast1_constr_conop of ast1 * ast1 * ast1
   | Ast1_constr_fields of ast1 * ast1 list
   | Ast1_newconstr_con of ast1 * ast1
