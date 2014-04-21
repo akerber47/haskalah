@@ -606,6 +606,6 @@ exception Lex_error of int * string
 exception Parse_error of string
 ;;
 
-(* Rename error: error message *)
-exception Rename_error of string
+(* Name error: error message *)
+exception Name_error of string
 ;;

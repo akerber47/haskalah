@@ -13,6 +13,26 @@ let map_add_conflict m x y =
     Map.add x (Some y) m
 ;;
 
+(* Look up the given prename in the given environment. Error if ambiguous.
+ * None if not present.
+ * environment -> prename -> name option *)
+let lookup env pn =
+  if Map.mem pn env then
+    match Map.find pn env with
+    | Some n -> Some n
+    | None -> raise (Name_error begin
+      match pn with
+      | (_,Some pfx,s) ->
+        Printf.sprintf2
+          "Identifier '%s.%s' is ambiguous\n" pfx s
+      | (_,_,s) ->
+        Printf.sprintf2
+          "Identifier '%s' is ambiguous\n" s
+    end)
+  else
+    None
+;;
+
 (* ast1 <Ast1_*leaf> -> string *)
 let leaf_contents ast =
   match ast with
@@ -44,19 +64,21 @@ let build_globals ast =
    * - triples (namespace, rawname, real_source_module) of things to add
    *   (note that real source module for a name might require a bunch of nested
    *   imports to dig up, but this is taken care of in get_import_names)
-   * globals -> string * bool * (namespace * string * string) list -> globals *)
-  and add_names glb (pfx, add_unq, names) =
+   * globals -> string * bool * (namespace * string * string) list -> globals
+   * *)
+  and add_names glbenv (pfx, add_unq, names) =
     List.fold_left
-      (fun g (pn,srcmod) ->
+      (fun g (ns, rn, srcmod) ->
         if add_unq then
-          { g with qualified = map_add_conflict g.qualified (pn,pfx)
-                                 (Name_global (pn,srcmod));
-                   unqualified = map_add_conflict g.unqualified pn
-                                 (Name_global (pn,srcmod))}
+          map_add_conflict
+            (map_add_conflict g (ns, Some pfx, rn)
+                                (Name_global (pn,srcmod)))
+            (ns, None, rn)
+            (Name_global (pn,srcmod))
         else
-          { g with qualified = map_add_conflict g.qualified (pn,pfx)
-                                 (Name_global (pn,srcmod))})
-      glb
+          map_add_conflict g (ns, Some pfx, rn)
+                             (Name_global (pn,srcmod))
+      glbenv
       names
   in
   match ast.node with
@@ -64,33 +86,8 @@ let build_globals ast =
       let mynames = List.concat (List.map get_topdecl_names topdecls)
       and imported_names = Manager.get_import_names ast
       List.fold_left add_names
-        { curmod = cm; unqualified = Map.empty; qualified = Map.empty }
+        Map.empty
         ((cm,true,mynames)::imported_names)
   | _ -> assert false
 ;;
 
-(* Look up unqualified identifier. Error if ambiguous. None if not found.
- * globals -> environment -> string -> string option *)
-let lookup_unq glb env s =
-  if Map.mem s env then
-    Some (Map.find s env)
-  else if Map.mem s glb then
-    match Map.find s glb with
-    | Some v -> Some v
-    | None -> raise (Parse_error (Printf.sprintf2
-        "Identifier '%s' is ambiguous\n" s))
-  else
-    None
-;;
-
-(* Similarly, qualified identifier. Note that we don't need to pass in a local
- * environment as these can only be declared at top-level. *)
-let lookup_q glb m s =
-  if Map.mem (m,s) glb then
-    match Map.find (m,s) glb with
-    | Some v -> Some v
-    | None -> raise (Parse_error (Printf.sprintf2
-        "Identifier '%s.%s' is ambiguous\n" m s))
-  else
-    None
-;;
