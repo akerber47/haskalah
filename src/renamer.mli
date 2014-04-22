@@ -16,7 +16,7 @@ val build_globals : ast1 -> environment
 (** Using these globals, descend through the AST and convert every identifier
  * to a name of local or global. Assign unique identifiers to local names as we
  * go. *)
-val rename : ast1 -> environment -> ast1
+val rename : environment -> ast1 -> ast1
 
 (** Using operator fixity declarations, restructure all infixexps and
  * infixpats. This will change each infixexp/pat_op
