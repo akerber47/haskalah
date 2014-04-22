@@ -346,6 +346,52 @@ and check_constr ast =
   in
   do_btype ast []
 
+(* ast <Ast0_decl_*> -> ast <Ast1_decl_*> *)
+and check_cdecl ast =
+  let newast = postparse_check ast in begin
+    (* In class declaration, pattern bindings can only contain simple variable
+     * on left hand side. *)
+    match newast.node1 with
+    | Ast1_decl_patbind ({ node1 =
+        Ast1_infixpat_pat10 { node1 =
+          Ast1_pat10_var _;_};_},_) ->
+            ()
+    | Ast1_decl_patbind _ ->
+        raise (Parse_error (Printf.sprintf2
+          "Class body cannot contain pattern binding: at %d-%d\n"
+          newast.blockstart1 newast.blockend1))
+    | _ -> ();
+    newast
+  end
+;;
+
+(* ast <Ast0_decl_*> -> ast <Ast1_decl_*> *)
+and check_idecl ast =
+  let newast = postparse_check ast in begin
+    (* Similarly for instance declaration. *)
+    match newast.node1 with
+    | Ast1_decl_patbind ({ node1 =
+        Ast1_infixpat_pat10 { node1 =
+          Ast1_pat10_var _;_};_},_) ->
+            ()
+    | Ast1_decl_patbind _ ->
+        raise (Parse_error (Printf.sprintf2
+          "Instance body cannot contain pattern binding: at %d-%d\n"
+          newast.blockstart1 newast.blockend1))
+    (* Also check for other illegal declarations in instances *)
+    | Ast1_decl_type _ ->
+        raise (Parse_error (Printf.sprintf2
+          "Instance body cannot contain type declaration: at %d-%d\n"
+          newast.blockstart1 newast.blockend1))
+    | Ast1_decl_fixity _ ->
+        raise (Parse_error (Printf.sprintf2
+          "Instance body cannot contain fixity declaration: at %d-%d\n"
+          newast.blockstart1 newast.blockend1))
+    | _ -> ();
+    newast
+  end
+;;
+
 (* Take in a (general) ast, and do context and pattern checks appropriately. *)
 and postparse_check ast =
   (* Variants that actually require transformations at the top. All other
@@ -390,6 +436,13 @@ and postparse_check ast =
   (* Convert data constructors by separating out constructor id *)
   | Ast0_constr_con a1 ->
       check_constr a1
+  (* Check that all class / instance bodies contain only cdecls / idecls. *)
+  | Ast0_topdecl_class (oa1,a2,a3,a4s) ->
+      Ast1_topdecl_class (Option.map postparse_check oa1, postparse_check a2,
+        postparse_check a3, List.map check_cdecl a4s)
+  | Ast0_topdecl_instance (oa1,a2,a3,a4s) ->
+      Ast1_topdecl_instance (Option.map postparse_check oa1,postparse_check a2,
+        postparse_check a3, List.map check_idecl a4s)
   (* All of the following: directly convert ast0 to ast1 *)
   | Ast0_module (oa1, oa2s, a3) ->
       Ast1_module (Option.map postparse_check oa1, Option.map (List.map postparse_check) oa2s, postparse_check a3)
@@ -413,10 +466,6 @@ and postparse_check ast =
       Ast1_topdecl_data (postparse_check a1,List.map postparse_check a2s,Option.map postparse_check oa3)
   | Ast0_topdecl_newtype (a1,a2,oa3) ->
       Ast1_topdecl_newtype (postparse_check a1,postparse_check a2,Option.map postparse_check oa3)
-  | Ast0_topdecl_class (oa1,a2,a3,a4s) ->
-      Ast1_topdecl_class (Option.map postparse_check oa1,postparse_check a2,postparse_check a3,List.map postparse_check a4s)
-  | Ast0_topdecl_instance (oa1,a2,a3,a4s) ->
-      Ast1_topdecl_instance (Option.map postparse_check oa1,postparse_check a2,postparse_check a3,List.map postparse_check a4s)
   | Ast0_topdecl_default a1s ->
       Ast1_topdecl_default (List.map postparse_check a1s)
   | Ast0_topdecl_decl a1 ->
