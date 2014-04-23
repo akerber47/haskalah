@@ -419,37 +419,62 @@ let rec rename env ast =
       Ast1_topdecl_default (List.map (rename env) a1s)
   | Ast1_topdecl_decl a1 ->
       Ast1_topdecl_decl (rename env a1)
-  (* TODO *)
-  | Ast1_decl_bind (a1,a2) ->
-      Ast1_decl_bind (rename env a1,rename env a2)
-  | Ast1_decl_type (a1s,a2) ->
-      Ast1_decl_type (List.map rename env a1s,rename env a2)
+  | Ast1_decl_funbind (lhs, rhs) ->
+      (* ast <Ast1_funlhs_*> -> ast <Ast1_*pat_*> list *)
+      let rec get_pats ast =
+        match ast.node1 with
+        | Ast1_funlhs_fun (_,a2s) -> a2s
+        | Ast1_funlhs_funop (a1,_,a3) -> [a1;a3]
+        | Ast1_funlhs_nested (a1,a2s) -> (get_pats a1) @ a2s
+      in
+      (* Pull out all ids bound in patterns on left hand side *)
+      let args = List.concat (List.map pat_get_binds (get_pats lhs)) in
+      (* Add names to environment for function name (remember all functions are
+       * automatically recursive) and all arguments *)
+      let newenv = add_locals_uniq Ns_var (fst (decl_get_binds ast) @ args) env
+      in
+      Ast1_decl_funbind (rename newenv lhs, rename newenv rhs)
+  | Ast1_decl_patbind (lhs, rhs) ->
+      let newenv = add_locals_uniq Ns_var (fst (decl_get_binds ast)) env in
+      Ast1_decl_patbind (rename newenv lhs, rename newenv rhs)
+  | Ast1_decl_type (vars, ctxt, t) ->
+      (* ids in type expression are automatically declared as free type
+       * variables - these are the only type variables allowed in context. *)
+      let newenv = add_locals_uniq Ns_tv (List.unique (get_tyvars t)) env in
+      Ast1_decl_type (List.map (rename env) a1s,
+        Option.map (rename newenv) ctxt, rename newenv t)
+  (* Give any fixity declaration (after renaming) to the fixity resolver. *)
   | Ast1_decl_fixity (a1,oa2,a3s) ->
-      Ast1_decl_fixity (rename env a1,Option.map rename env oa2,List.map rename env a3s)
+      let decl = Ast1_decl_fixity (a1, oa2, List.map (rename env) a3s) in begin
+        Fixity.declare decl;
+        decl
+      end
   | Ast1_decl_empty ->
       Ast1_decl_empty
+  (* All other type expressions just pass the environment through. Leaves are
+   * types. *)
   | Ast1_type_context (a1,a2) ->
-      Ast1_type_context (rename env a1,rename env a2)
+      Ast1_type_context (rename env a1, rename env a2)
   | Ast1_type_fun (a1,a2) ->
-      Ast1_type_fun (rename env a1,rename env a2)
+      Ast1_type_fun (rename env a1, rename env a2)
   | Ast1_type_btype a1 ->
       Ast1_type_btype (rename env a1)
   | Ast1_btype_app (a1,a2) ->
-      Ast1_btype_app (rename env a1,rename env a2)
+      Ast1_btype_app (rename env a1, rename env a2)
   | Ast1_btype_atype a1 ->
       Ast1_btype_atype (rename env a1)
   | Ast1_atype_con a1 ->
-      Ast1_atype_con (rename env a1)
+      Ast1_atype_con (rename_leaf env Lfs_type a1)
   | Ast1_atype_var a1 ->
-      Ast1_atype_var (rename env a1)
+      Ast1_atype_var (rename_leaf env Lfs_type a1)
   | Ast1_atype_tuple a1s ->
-      Ast1_atype_tuple (List.map rename env a1s)
+      Ast1_atype_tuple (List.map (rename env) a1s)
   | Ast1_atype_list a1 ->
       Ast1_atype_list (rename env a1)
   | Ast1_atype_paren a1 ->
       Ast1_atype_paren (rename env a1)
   | Ast1_gtycon_con a1 ->
-      Ast1_gtycon_con (rename env a1)
+      Ast1_gtycon_con (rename_leaf env Lfs_type a1)
   | Ast1_gtycon_unit ->
       Ast1_gtycon_unit
   | Ast1_gtycon_list ->
@@ -457,123 +482,258 @@ let rec rename env ast =
   | Ast1_gtycon_fun ->
       Ast1_gtycon_fun
   | Ast1_gtycon_tuple a1s ->
-      Ast1_gtycon_tuple (List.map rename env a1s)
+      Ast1_gtycon_tuple a1s
+  (* All other context expressions, similarly. Leaves are classes or tyvars. *)
   | Ast1_scontext a1s ->
-      Ast1_scontext (List.map rename env a1s)
+      Ast1_scontext (List.map (rename env) a1s)
   | Ast1_simpleclass (a1,a2) ->
-      Ast1_simpleclass (rename env a1,rename env a2)
+      Ast1_simpleclass (rename_leaf env Lfs_class a1,
+        rename_leaf env Lfs_class a2)
+  (* All constructor declarations, similarly. Note that the *name* of a data
+   * constructor is a value, but all other ids in a constructor decl are
+   * types (except field names, of course). *)
   | Ast1_simpletype (a1,a2s) ->
-      Ast1_simpletype (rename env a1,List.map rename env a2s)
-  | Ast1_constr_con a1 ->
-      Ast1_constr_con (rename env a1)
+      Ast1_simpletype (rename_leaf env Lfs_type a1,
+        List.map (rename_leaf env Lfs_type) a2s)
+  | Ast1_constr_con (a1,a2s) ->
+      Ast1_constr_con (rename_leaf env Lfs_value a1, List.map (rename env) a2s)
   | Ast1_constr_conop (a1,a2,a3) ->
-      Ast1_constr_conop (rename env a1,rename env a2,rename env a3)
+      Ast1_constr_conop (rename env a1, rename_leaf env Lfs_value a2,
+        rename env a3)
   | Ast1_constr_fields (a1,a2s) ->
-      Ast1_constr_fields (rename env a1,List.map rename env a2s)
+      Ast1_constr_fields (rename_leaf env Lfs_value a1,
+        List.map (rename env) a2s)
   | Ast1_newconstr_con (a1,a2) ->
-      Ast1_newconstr_con (rename env a1,rename env a2)
+      Ast1_newconstr_con (rename_leaf env Lfs_value a1, rename env a2)
   | Ast1_newconstr_field (a1,a2,a3) ->
-      Ast1_newconstr_field (rename env a1,rename env a2,rename env a3)
+      Ast1_newconstr_field (rename_leaf env Lfs_value a1,
+        rename_leaf env Lfs_value a2, rename env a3)
   | Ast1_fielddecl (a1s,a2) ->
-      Ast1_fielddecl (List.map rename env a1s,rename env a2)
+      Ast1_fielddecl (List.map (rename_leaf env Lfs_value) a1s, rename env a2)
   | Ast1_deriving a1s ->
-      Ast1_deriving (List.map rename env a1s)
+      Ast1_deriving (List.map (rename_leaf env Lfs_class) a1s)
+  (* All instance types, similarly. Leaves are types. *)
   | Ast1_inst_con a1 ->
       Ast1_inst_con (rename env a1)
   | Ast1_inst_app (a1,a2s) ->
-      Ast1_inst_app (rename env a1,List.map rename env a2s)
+      Ast1_inst_app (rename env a1, List.map (rename_leaf env Lfs_type) a2s)
   | Ast1_inst_tuple a1s ->
-      Ast1_inst_tuple (List.map rename env a1s)
+      Ast1_inst_tuple (List.map (rename_leaf env Lfs_type) a1s)
   | Ast1_inst_list a1 ->
-      Ast1_inst_list (rename env a1)
+      Ast1_inst_list (rename_leaf env Lfs_type a1)
   | Ast1_inst_fun (a1,a2) ->
-      Ast1_inst_fun (rename env a1,rename env a2)
+      Ast1_inst_fun (rename_leaf env Lfs_type a1, rename_leaf env Lfs_type a2)
+  (* If right-hand side has no where block, just pass environment through. If
+   * there is a where block, pull out all identifiers declared in the where
+   * block and add them to the environment (for both where body and rhs) *)
   | Ast1_rhs_eq (a1,oa2s) ->
-      Ast1_rhs_eq (rename env a1,Option.map (List.map rename env) oa2s)
+      match oa2s with
+      | Some a2s ->
+          let newenv = add_locals_uniq Ns_var (decls_get_binds a2s) env in
+          Ast1_rhs_eq (rename newenv a1, Some (List.map (rename newenv) a2s))
+      | None ->
+          Ast1_rhs_eq (rename env a1, None)
   | Ast1_rhs_guard (a1s,oa2s) ->
-      Ast1_rhs_guard (List.map rename env a1s,Option.map (List.map rename env) oa2s)
+      match oa2s with
+      | Some a2s ->
+          let newenv = add_locals_uniq Ns_var (decls_get_binds a2s) env in
+          Ast1_rhs_eq (List.map (rename newenv) a1s,
+            Some (List.map (rename newenv) a2s))
+      | None ->
+          Ast1_rhs_eq (List.map (rename env) a1s, None)
   | Ast1_gdrhs (a1,a2) ->
-      Ast1_gdrhs (rename env a1,rename env a2)
-  | Ast1_exp (a1,oa2) ->
-      Ast1_exp (rename env a1,Option.map rename env oa2)
+      Ast1_gdrhs (rename env a1, rename env a2)
+  (* If we have a typed expression, need to bind all free type variables (just
+   * like for top-level type declaration) *)
+  | Ast1_exp (a1,oa23) ->
+      match oa23 with
+      | Some (ctxt,t) ->
+          let t_env = add_locals_uniq Ns_tv (get_tyvars t) in
+          Ast1_exp (rename env a1,
+            Some (Option.map (rename t_env) ctxt, rename t_env t))
+      | None ->
+          Ast1_exp (rename env a1, None)
+  (* For infixexps, just pass environment through. *)
   | Ast1_infixexp_op (a1,a2,a3) ->
-      Ast1_infixexp_op (rename env a1,rename env a2,rename env a3)
+      Ast1_infixexp_op (rename env a1, rename_leaf env Lfs_value a2,
+        rename env a3)
   | Ast1_infixexp_exp10 a1 ->
       Ast1_infixexp_exp10 (rename env a1)
+  (* Lambdas bind like pattern arguments in funbinds *)
   | Ast1_exp10_lambda (a1s,a2) ->
-      Ast1_exp10_lambda (List.map rename env a1s,rename env a2)
+      let args = List.concat (List.map pat_get_binds a1s) in
+      let newenv = add_locals_uniq Ns_var args env in
+      Ast1_exp10_lambda (List.map (rename newenv) a1s, rename newenv a2)
+  (* Lets bind like wheres *)
   | Ast1_exp10_let (a1s,a2) ->
-      Ast1_exp10_let (List.map rename env a1s,rename env a2)
+      let newenv = add_locals_uniq Ns_var (decls_get_binds a1s) env in
+      Ast1_exp10_let (List.map (rename newenv) a1s, rename newenv a2)
+  (* All other expressions just pass environment through. Leaves are values. *)
   | Ast1_exp10_if (a1,a2,a3) ->
-      Ast1_exp10_if (rename env a1,rename env a2,rename env a3)
+      Ast1_exp10_if (rename env a1, rename env a2, rename env a3)
   | Ast1_exp10_case (a1,a2s) ->
-      Ast1_exp10_case (rename env a1,List.map rename env a2s)
+      Ast1_exp10_case (rename env a1, List.map (rename env) a2s)
+  (* Do blocks are a lot like list comprehensions (see below) *)
   | Ast1_exp10_do a1s ->
-      Ast1_exp10_do (List.map rename env a1s)
+      let rec do_stmts curenv stmts stmts_acc =
+        match stmts with
+        | [] -> Ast1_exp10_do stmts_acc
+        | (s::ss) -> begin
+          match s.node1 with
+          (* Assigns add pattern bindings *)
+          | Ast1_stmt_assign (a1,a2) ->
+              let newenv = add_locals_uniq Ns_var (pat_get_binds a1) curenv in
+              do_stmts newenv ss (stmts_acc @ [{ s with node1 =
+                Ast1_stmt_assign (rename newenv a1, rename curenv a2)}])
+          (* Lets add declaration bindings *)
+          | Ast1_stmt_let a1s ->
+              let newenv = add_locals_uniq Ns_var (decls_get_binds a1s) curenv
+              in
+              do_stmts newenv ss (stmts_acc @ [{ s with node1 =
+                Ast1_stmt_let (List.map (rename newenv) a1s)}])
+          (* And simple expressions don't modify environment *)
+          | Ast1_stmt_exp a1 ->
+              do_stmts curenv ss (stmts_acc @ [{s with node1 =
+                Ast1_stmt_exp (rename curenv a1)}])
+          | Ast1_stmt_empty ->
+              do_stmts curenv ss (stmts_acc @ [Ast1_stmt_empty])
+        end
   | Ast1_exp10_aexps a1s ->
-      Ast1_exp10_aexps (List.map rename env a1s)
+      Ast1_exp10_aexps (List.map (rename env) a1s)
   | Ast1_aexp_var a1 ->
-      Ast1_aexp_var (rename env a1)
+      Ast1_aexp_var (rename_leaf env Lfs_value a1)
   | Ast1_aexp_con a1 ->
-      Ast1_aexp_con (rename env a1)
+      Ast1_aexp_con (rename_leaf env Lfs_value a1)
+  (* Note that we still need to "rename" literals to convert them to rleaves *)
   | Ast1_aexp_literal a1 ->
-      Ast1_aexp_literal (rename env a1)
+      Ast1_aexp_literal (rename_leaf env Lfs_value a1)
   | Ast1_aexp_paren a1 ->
       Ast1_aexp_paren (rename env a1)
   | Ast1_aexp_tuple a1s ->
-      Ast1_aexp_tuple (List.map rename env a1s)
+      Ast1_aexp_tuple (List.map (rename env) a1s)
   | Ast1_aexp_list a1s ->
-      Ast1_aexp_list (List.map rename env a1s)
+      Ast1_aexp_list (List.map (rename env) a1s)
   | Ast1_aexp_seq (a1, oa2, oa3) ->
-      Ast1_aexp_seq (rename env a1, Option.map rename env oa2, Option.map rename env oa3)
+      Ast1_aexp_seq (rename env a1, Option.map (rename env) oa2,
+        Option.map (rename env) oa3)
+  (* List comprehensions are kind of a mess. Each qualifier is renamed in an
+   * environment deeper than all earlier qualifiers (ie containing all bindings
+   * introduced in earlier qualifiers), and the expression has innermost
+   * environment. *)
   | Ast1_aexp_comp (a1,a2s) ->
-      Ast1_aexp_comp (rename env a1,List.map rename env a2s)
+      let rec do_quals curenv exp quals quals_acc =
+        match quals with
+        (* Once all qualifiers renamed, just proceed to expression *)
+        | [] -> Ast1_aexp_comp (rename curenv exp, quals_acc)
+        | (q::qs) -> begin
+          match q.node1 with
+          (* Assigns add pattern bindings *)
+          | Ast1_qual_assign (a1,a2) ->
+              let newenv = add_locals_uniq Ns_var (pat_get_binds a1) curenv in
+              do_quals newenv exp qs (quals_acc @ [{ q with node1 =
+                Ast1_qual_assign (rename newenv a1, rename curenv a2)}])
+          (* Lets add declaration bindings *)
+          | Ast1_qual_let a1s ->
+              let newenv = add_locals_uniq Ns_var (decls_get_binds a1s) curenv
+              in
+              do_quals newenv exp qs (quals_acc @ [{ q with node1 =
+                Ast1_qual_let (List.map (rename newenv) a1s)}])
+          (* And simple guards don't modify environment *)
+          | Ast1_qual_guard a1 ->
+              do_quals curenv exp qs (quals_acc @ [{q with node1 =
+                Ast1_qual_guard (rename curenv a1)}])
+        end
+      in
+      do_quals env a1 a2s []
   | Ast1_aexp_lsec (a1,a2) ->
-      Ast1_aexp_lsec (rename env a1,rename env a2)
+      Ast1_aexp_lsec (rename env a1, rename_leaf env Lfs_value a2)
   | Ast1_aexp_rsec (a1,a2) ->
-      Ast1_aexp_rsec (rename env a1,rename env a2)
+      Ast1_aexp_rsec (rename_leaf env Lfs_value a1,rename_leaf env a2)
   | Ast1_aexp_lbupdate (a1,a2s) ->
-      Ast1_aexp_lbupdate (rename env a1,List.map rename env a2s)
-  | Ast1_aexp_aspat (a1,a2) ->
-      Ast1_aexp_aspat (rename env a1,rename env a2)
-  | Ast1_aexp_irrefpat a1 ->
-      Ast1_aexp_irrefpat (rename env a1)
-  | Ast1_aexp_wildpat ->
-      Ast1_aexp_wildpat
-  | Ast1_qual_assign (a1,a2) ->
-      Ast1_qual_assign (rename env a1,rename env a2)
-  | Ast1_qual_let a1s ->
-      Ast1_qual_let (List.map rename env a1s)
-  | Ast1_qual_guard a1 ->
-      Ast1_qual_guard (rename env a1)
+      Ast1_aexp_lbupdate (rename env a1, List.map (rename env) a2s)
+  (* quals should be handled in Ast1_aexp_comp case *)
+  | Ast1_qual_assign _
+  | Ast1_qual_let _
+  | Ast1_qual_guard _ -> assert false
+  (* Alts have pattern bindings. Also potentially where bindings *)
   | Ast1_alt_match (a1,a2,oa3s) ->
-      Ast1_alt_match (rename env a1,rename env a2,Option.map (List.map rename env) oa3s)
+      (* We first extend by the lhs pattern, then by the where bindings. *)
+      let newenv = add_locals_uniq Ns_var (pat_get_binds a1) env in
+      match oa3s with
+      | Some a3s ->
+          let newerenv = add_locals_uniq Ns_var (decls_get_binds a3s) newenv in
+          Ast1_alt_match (rename newenv a1, rename newerenv a2,
+            Some (List.map (rename newerenv) a3s))
+      | None ->
+          Ast1_alt_match (rename newenv a1, rename newenv a2, None)
+  (* Similarly *)
   | Ast1_alt_guard (a1,a2s,oa3s) ->
-      Ast1_alt_guard (rename env a1,List.map rename env a2s,Option.map (List.map rename env) oa3s)
+      let newenv = add_locals_uniq Ns_var (pat_get_binds a1) env in
+      match oa3s with
+      | Some a3s ->
+          let newerenv = add_locals_uniq Ns_var (decls_get_binds a3s) newenv in
+          Ast1_alt_guard (rename newenv a1, List.map (rename newerenv) a2s,
+            Some (List.map (rename newerenv) a3s))
+      | None ->
+          Ast1_alt_guard (rename newenv a1, List.map (rename newenv) a2s, None)
   | Ast1_gdpat (a1,a2) ->
-      Ast1_gdpat (rename env a1,rename env a2)
-  | Ast1_stmt_exp a1 ->
-      Ast1_stmt_exp (rename env a1)
-  | Ast1_stmt_assign (a1,a2) ->
-      Ast1_stmt_assign (rename env a1,rename env a2)
-  | Ast1_stmt_let a1s ->
-      Ast1_stmt_let (List.map rename env a1s)
-  | Ast1_stmt_empty ->
-      (Ast1_stmt_empty)
+      Ast1_gdpat (rename env a1, rename env a2)
+  (* Should be handled in Ast1_exp10_do *)
+  | Ast1_stmt_exp _
+  | Ast1_stmt_assign _
+  | Ast1_stmt_let _
+  | Ast1_stmt_empty -> assert false
+  (* Patterns are just as boring as expressions *)
   | Ast1_fbind (a1, a2) ->
-      Ast1_fbind (rename env a1, rename env a2)
+      Ast1_fbind (rename_leaf env Lfs_value a1, rename env a2)
+  | Ast1_pat a1 ->
+      Ast1_pat (rename env a1)
+  | Ast1_infixpat_op (a1,a2,a3) ->
+      Ast1_infixpat_op (rename env a1, rename_leaf env Lfs_value a2,
+        rename env a3)
+  | Ast1_infixpat_pat10 a1 ->
+      Ast1_infixpat_pat10 (rename env a1)
+  | Ast1_pat10_con (a1,a2s) ->
+      Ast1_pat10_con (rename_leaf env Lfs_value a1, List.map (rename env) a2s)
+  | Ast1_pat10_apat a1 ->
+      Ast1_pat10_apat (rename env a1)
+  | Ast1_apat_var a1 ->
+      Ast1_apat_var (rename_leaf env Lfs_value a1)
+  | Ast1_apat_as (a1,a2) ->
+      Ast1_apat_as (rename_leaf env Lfs_value a1, rename env a2)
+  | Ast1_apat_con a1 ->
+      Ast1_apat_con (rename_leaf env Lfs_value a1)
+  | Ast1_apat_lbpat (a1,a2s) ->
+      Ast1_apat_lbpat (rename_leaf env Lfs_value a1, List.map (rename env) a2)
+  (* Note that we still need to "rename" literals to convert them to rleaves *)
+  | Ast1_apat_literal a1 ->
+      Ast1_apat_literal (rename_leaf env Lfs_value a1)
+  | Ast1_apat_wild ->
+      Ast1_apat_wild
+  | Ast1_apat_paren a1 ->
+      Ast1_apat_paren (rename env a1)
+  | Ast1_apat_tuple a1s ->
+      Ast1_apat_tuple (List.map (rename env) a1s)
+  | Ast1_apat_list a1s ->
+      Ast1_apat_list (List.map (rename env) a1s)
+  | Ast1_apat_irref a1 ->
+      Ast1_apat_irref (rename env a1)
+  | Ast1_fpat (a1,a2) ->
+      Ast1_fpat (rename_leaf env Lfs_value a1, rename env a2)
   | Ast1_gcon_unit ->
       Ast1_gcon_unit
   | Ast1_gcon_list ->
       Ast1_gcon_list
   | Ast1_gcon_tuple a1s ->
-      Ast1_gcon_tuple (List.map rename env a1s)
+      Ast1_gcon_tuple a1s
   | Ast1_gcon_qcon a1 ->
-      Ast1_gcon_qcon (rename env a1)
-  | Ast1_parenthesized_leaf l ->
-      Ast1_parenthesized_leaf l
-  | Ast1_backquoted_leaf l ->
-      Ast1_backquoted_leaf l
-  | Ast1_leaf l ->
-      Ast1_leaf l
-  in { node = newnode; blockstart = ast.blockstart; blockend = ast.blockend }
+      Ast1_gcon_qcon (rename_leaf env Lfs_value a1)
+  (* Should have called rename_leaf on leaf nodes *)
+  | Ast1_parenthesized_leaf _
+  | Ast1_backquoted_leaf _
+  | Ast1_leaf _ -> assert false
+  (* Shouldn't exist yet *)
+  | Ast1_parenthesized_rleaf _
+  | Ast1_backquoted_rleaf _
+  | Ast1_leaf _ -> assert false
+  in { ast with node1 = newnode }
