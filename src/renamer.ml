@@ -68,7 +68,7 @@ let leaf_contents ast =
 (* Return a list of the identifiers bound in a given pattern expression.
  * ast1 <Ast1_*pat*_*> -> string list *)
 let rec pat_get_binds ast =
-  match ast.node with
+  match ast.node1 with
   (* Basically, just map it all down to the lowest-level patterns (apats) *)
   | Ast1_pat a1 -> pat_get_binds a1
   | Ast1_infixpat_op (a1,_,a3) -> (pat_get_binds a1) @ (pat_get_binds a3)
@@ -97,10 +97,10 @@ let rec pat_get_binds ast =
  * Also, return true if function binding, false otherwise.
  * ast1 <Ast1_decl_*> -> string list * bool *)
 let decl_get_binds ast =
-  match ast.node with
+  match ast.node1 with
   | Ast1_decl_funbind (funlhs_ast, _) ->
       let rec do_funlhs fl_ast =
-        match fl_ast.node with
+        match fl_ast.node1 with
         (* "f x y = ..." declares f *)
         | Ast1_funlhs_fun (nf, _) -> [leaf_contents nf]
         (* "x `op` y = ..." declares op *)
@@ -117,11 +117,18 @@ let decl_get_binds ast =
   | _ -> assert false
 ;;
 
+(* Takes in a list of declarations, and returns list of identifiers, similarly
+ * to above. Combines multi-line function bindings into single declared id.
+ * ast1 <Ast1_decl_*> list -> string list *)
+let decls_get_binds asts =
+  List.concat (uniq_consecutive_flag (=)
+    (List.map decl_get_binds asts))
+;;
 
 let build_globals ast =
   (* Look up name of module currently being compiled. *)
   let curmod =
-    match ast.node with
+    match ast.node1 with
     | Ast1_module (Some m, _, _) -> leaf_contents m
     | _ -> "Main" (* Default for unnamed modules *)
   in
@@ -132,27 +139,27 @@ let build_globals ast =
    * declared identifier.
    * ast1 <node=Ast1_topdecl_*> -> (namespace * string * string) list * bool *)
   let get_topdecl_names ast =
-    match ast.node with
+    match ast.node1 with
     (* "type T a b = t" declares T *)
     | Ast1_topdecl_type (
-      { node = Ast1_simpletype (
-        { node = nT; _},_);_},_) ->
+      { node1 = Ast1_simpletype (
+        { node1 = nT; _},_);_},_) ->
           [(Ns_tc, leaf_contents nT, curmod)], false
     (* "newtype T a b = N t" declares T and N *)
     | Ast1_topdecl_newtype (
-      { node = Ast1_simpletype (
-        { node = nT; _},_);_},
-      { node = Ast1_newconstr_con (
-        { node = nN; _},_);_},_) ->
+      { node1 = Ast1_simpletype (
+        { node1 = nT; _},_);_},
+      { node1 = Ast1_newconstr_con (
+        { node1 = nN; _},_);_},_) ->
           [(Ns_tc, leaf_contents nT, curmod);
            (Ns_data, leaf_contents nN, curmod)], false
     (* "newtype T a b = N { f :: t }" declares T, N, and f *)
     | Ast1_topdecl_newtype (
-      { node = Ast1_simpletype (
-        { node = nT; _},_);_},
-      { node = Ast1_newconstr_field (
-        { node = nN; _},
-        { node = nf; _},_);_},_) ->
+      { node1 = Ast1_simpletype (
+        { node1 = nT; _},_);_},
+      { node1 = Ast1_newconstr_field (
+        { node1 = nN; _},
+        { node1 = nf; _},_);_},_) ->
           [(Ns_tc, leaf_contents nT, curmod);
            (Ns_data, leaf_contents nN, curmod);
            (Ns_var, leaf_contents nf, curmod)], false
@@ -160,22 +167,22 @@ let build_globals ast =
      * constructors can now be operators)
      * "data T a b = N1 t | N2 t | ..." declares T (at least) *)
     | Ast1_topdecl_data (
-      { node = Ast1_simpletype (
-        { node = nT; _},_);_},
+      { node1 = Ast1_simpletype (
+        { node1 = nT; _},_);_},
       constrs,_) ->
         let do_constr c_ast =
-          match c_ast.node with
+          match c_ast.node1 with
           (* constructor "N1 t1 t2 t3" declares N1 *)
-          | Ast1_constr_con ({ node = nN1; _},_) ->
+          | Ast1_constr_con ({ node1 = nN1; _},_) ->
               [(Ns_data, leaf_contents nN1, curmod)]
           (* constructor "t1 :n2 t2" declares :n2 *)
-          | Ast1_constr_conop (_, { node = nn2; _},_) ->
+          | Ast1_constr_conop (_, { node1 = nn2; _},_) ->
               [(Ns_data, leaf_contents nn2, curmod)]
           (* constructor "N3 { f1,f2 :: t1, f3 :: t2, ... }" declares
            * N3 and f1,f2,f3 *)
-          | Ast1_constr_fields ({ node = nN3; _}, fd_asts) ->
+          | Ast1_constr_fields ({ node1 = nN3; _}, fd_asts) ->
               let do_fielddecl fd_ast =
-                match fd_ast.node with
+                match fd_ast.node1 with
                 | Ast1_fielddecl (nf1s,_) ->
                     List.map (fun nf1 -> (Ns_var, leaf_contents nf1, curmod))
                       nf1s
@@ -188,9 +195,9 @@ let build_globals ast =
         (Ns_tc, leaf_contents nT, curmod)::
           (List.concat (List.map do_constr constrs)), false
     (* "class ... => C a where ..." declares C (at least) *)
-    | Ast1_topdecl_class (_, { node = nC; _}, _, cdecls) ->
+    | Ast1_topdecl_class (_, { node1 = nC; _}, _, cdecls) ->
         let do_cdecl c_ast =
-          match c_ast.node with
+          match c_ast.node1 with
           (* class method type decl "op1,op2 :: t" declares op1 and op2 *)
           | Ast1_decl_type (nop1s, _, _) ->
               List.map (fun nop1 -> (Ns_var, leaf_contents nop1, curmod)) nop1s
@@ -206,7 +213,7 @@ let build_globals ast =
     | Ast1_topdecl_import _ -> [], false
     (* Finally, any other top-level declarations work just like inner
      * declarations (except that they're at top level. *)
-    | Ast1_topdecl_decl { node = d; _} ->
+    | Ast1_topdecl_decl { node1 = d; _} ->
         let (binds,isfun) = decl_get_binds d
         in
         (List.map (fun id -> (Ns_var, id, curmod)) binds), isfun
@@ -248,8 +255,8 @@ let build_globals ast =
             "Identifier '%s' already defined" id)))
       (List.group (=) lst)
   in
-  match ast.node with
-  | Ast1_module (_, _, { node = Ast1_body topdecls; _ }) ->
+  match ast.node1 with
+  | Ast1_module (_, _, { node1 = Ast1_body topdecls; _ }) ->
       (* Get all names from top-level declarations in current file, combining
        * adjacent function bindings. *)
       let mynames = List.concat (uniq_consecutive_flag (=)
@@ -296,7 +303,7 @@ end
  * list of all the (lowercase) type variable identifiers used in it.
  * ast1 <Ast1_*type*> -> string list *)
 let rec get_tyvars ast =
-  match ast.node with
+  match ast.node1 with
   | Ast1_simpletype (_,a2s) ->
       List.map leaf_contents a2s
   | Ast1_inst_con _ ->
@@ -329,12 +336,13 @@ let rec get_tyvars ast =
       get_tyvars a1
   | _ -> assert false
 
+
 (* Basically just recursively descend through the tree, keeping track of the
  * current environment at all times. When we reach a leaf, use the local
- * namespace  and current environment to look up that lexeme (if it's an
+ * namespace and current environment to look up that lexeme (if it's an
  * identifier) *)
 let rec rename env ast =
-  let newnode = match ast.node with
+  let newnode1 = match ast.node1 with
   | Ast1_module (oa1, oa2s, a3) ->
       Ast1_module (oa1, Option.map (List.map (rename env)) oa2s, rename env a3)
   | Ast1_body a1s ->
@@ -370,7 +378,7 @@ let rec rename env ast =
   | Ast1_topdecl_class (ctxt, nC, na, body) ->
       (* string -> environment -> ast <Ast1_decl_*> -> ast <Ast1_decl_*> *)
       let do_cdecl id e ast =
-        match ast.node with
+        match ast.node1 with
         (* Process any type signatures like normal, but make sure to bind the
          * given id to the correct tv name (given at top of class decl).
          * We do this by making sure to *not* add an inner local type variable
@@ -386,7 +394,9 @@ let rec rename env ast =
               end
             in
             let t_e = add_locals_uniq Ns_tv t_locals e in
-            (* Cannot constrain class type variable in its method's context. *)
+            (* Cannot constrain class type variable in its method's context.
+             * Yes, maybe we could produce a useful error message in this case.
+             * Too much work. *)
             let ctxt_e = remove_local Ns_tv id e in
             Ast1_decl_type (List.map (rename e) vars,
               Option.map (rename ctxt_e) ctxt, rename t_e t)
