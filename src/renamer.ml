@@ -56,6 +56,34 @@ let lookup env pn =
     None
 ;;
 
+(* Create a new local name for the given identifier in the given namespace,
+ * and add the corresponding binding to the given name environment.
+ * Uses shared state to create unique disambiguator for given local name.
+ * namespace -> string -> enivronment -> environment *)
+let add_local ns id env =
+  let u = Unique.get id in
+  Map.add (ns, None, id) (Some (Name_local (ns, id, u))) env
+;;
+
+let remove_local ns id env =
+  Map.remove (ns, None, id) env
+;;
+
+(* Same thing, but with a bunch of local names, and checking to make sure there
+ * are no duplicates. *)
+let add_locals_uniq ns ids env = begin
+  (* Check for duplicates... *)
+  List.iter
+    (fun gp ->
+      if List.length gp > 1 then
+        raise (Name_error (Printf.sprintf2
+          "Identifier '%s' defined multiple times" List.hd gp)))
+    (List.group (=) ids);
+  (* And add all to env *)
+  List.fold_left (fun e id -> add_local ns id e) env ids
+end
+;;
+
 (* ast1 <Ast1_*leaf> -> string *)
 let leaf_contents ast =
   match ast with
@@ -123,6 +151,44 @@ let decl_get_binds ast =
 let decls_get_binds asts =
   List.concat (uniq_consecutive_flag (=)
     (List.map decl_get_binds asts))
+;;
+
+(* Take in an ast <Ast1_simpletype, Ast1_inst_*, or Ast1_*type_*> and build a
+ * list of all the (lowercase) type variable identifiers used in it.
+ * ast1 <Ast1_*type*> -> string list *)
+let rec get_tyvars ast =
+  match ast.node1 with
+  | Ast1_simpletype (_,a2s) ->
+      List.map leaf_contents a2s
+  | Ast1_inst_con _ ->
+      []
+  | Ast1_inst_app (a1,a2s) ->
+      List.map leaf_contents a2s
+  | Ast1_inst_tuple a1s ->
+      List.map leaf_contents a2s
+  | Ast1_inst_list a1 ->
+      [leaf_contents a1]
+  | Ast1_inst_fun (a1,a2) ->
+      [leaf_contents a1; leaf_contents a2]
+  | Ast1_type_fun (a1,a2) ->
+      (get_tyvars a1) @ (get_tyvars a2)
+  | Ast1_type_btype a1 ->
+      get_tyvars a1
+  | Ast1_btype_app (a1,a2) ->
+      (get_tyvars a1) @ (get_tyvars a2)
+  | Ast1_btype_atype a1 ->
+      get_tyvars a1
+  | Ast1_atype_con _ ->
+      []
+  | Ast1_atype_var a1 ->
+      [leaf_contents a1]
+  | Ast1_atype_tuple a1s ->
+      List.concat (List.map get_tyvars a1s)
+  | Ast1_atype_list a1 ->
+      get_tyvars a1
+  | Ast1_atype_paren a1 ->
+      get_tyvars a1
+  | _ -> assert false
 ;;
 
 let build_globals ast =
@@ -270,71 +336,6 @@ let build_globals ast =
       end
   | _ -> assert false
 ;;
-
-(* Create a new local name for the given identifier in the given namespace,
- * and add the corresponding binding to the given name environment.
- * Uses shared state to create unique disambiguator for given local name.
- * namespace -> string -> enivronment -> environment *)
-let add_local ns id env =
-  let u = Unique.get id in
-  Map.add (ns, None, id) (Some (Name_local (ns, id, u))) env
-;;
-
-let remove_local ns id env =
-  Map.remove (ns, None, id) env
-;;
-
-(* Same thing, but with a bunch of local names, and checking to make sure there
- * are no duplicates. *)
-let add_locals_uniq ns ids env = begin
-  (* Check for duplicates... *)
-  List.iter
-    (fun gp ->
-      if List.length gp > 1 then
-        raise (Name_error (Printf.sprintf2
-          "Identifier '%s' defined multiple times" List.hd gp)))
-    (List.group (=) ids);
-  (* And add all to env *)
-  List.fold_left (fun e id -> add_local ns id e) env ids
-end
-;;
-
-(* Take in an ast <Ast1_simpletype, Ast1_inst_*, or Ast1_*type_*> and build a
- * list of all the (lowercase) type variable identifiers used in it.
- * ast1 <Ast1_*type*> -> string list *)
-let rec get_tyvars ast =
-  match ast.node1 with
-  | Ast1_simpletype (_,a2s) ->
-      List.map leaf_contents a2s
-  | Ast1_inst_con _ ->
-      []
-  | Ast1_inst_app (a1,a2s) ->
-      List.map leaf_contents a2s
-  | Ast1_inst_tuple a1s ->
-      List.map leaf_contents a2s
-  | Ast1_inst_list a1 ->
-      [leaf_contents a1]
-  | Ast1_inst_fun (a1,a2) ->
-      [leaf_contents a1; leaf_contents a2]
-  | Ast1_type_fun (a1,a2) ->
-      (get_tyvars a1) @ (get_tyvars a2)
-  | Ast1_type_btype a1 ->
-      get_tyvars a1
-  | Ast1_btype_app (a1,a2) ->
-      (get_tyvars a1) @ (get_tyvars a2)
-  | Ast1_btype_atype a1 ->
-      get_tyvars a1
-  | Ast1_atype_con _ ->
-      []
-  | Ast1_atype_var a1 ->
-      [leaf_contents a1]
-  | Ast1_atype_tuple a1s ->
-      List.concat (List.map get_tyvars a1s)
-  | Ast1_atype_list a1 ->
-      get_tyvars a1
-  | Ast1_atype_paren a1 ->
-      get_tyvars a1
-  | _ -> assert false
 
 
 (* Basically just recursively descend through the tree, keeping track of the
@@ -737,3 +738,4 @@ let rec rename env ast =
   | Ast1_backquoted_rleaf _
   | Ast1_leaf _ -> assert false
   in { ast with node1 = newnode }
+;;
