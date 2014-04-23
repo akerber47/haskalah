@@ -277,7 +277,7 @@ let build_globals ast =
  * namespace -> string -> enivronment -> environment *)
 let add_local ns id env =
   let u = Unique.get id in
-  Map.add (ns, None, id) (Name_local (ns, id, u)) env
+  Map.add (ns, None, id) (Some (Name_local (ns, id, u))) env
 ;;
 
 let remove_local ns id env =
@@ -292,7 +292,7 @@ let add_locals_uniq ns ids env = begin
     (fun gp ->
       if List.length gp > 1 then
         raise (Name_error (Printf.sprintf2
-          "Identifier '%s' already defined" List.hd gp)))
+          "Identifier '%s' defined multiple times" List.hd gp)))
     (List.group (=) ids);
   (* And add all to env *)
   List.fold_left (fun e id -> add_local ns id e) env ids
