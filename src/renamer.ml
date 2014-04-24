@@ -337,6 +337,42 @@ let build_globals ast =
   | _ -> assert false
 ;;
 
+(* Given a leaf, look up the prename stored in that leaf in the given
+ * environment (using the given namespace). Return the corresponding rleaf. If
+ * the leaf contains a literal, leave it unchanged.
+ * environment -> namespace -> ast <Ast1_*_leaf> -> ast <Ast1_rleaf> *)
+let rec rename_leaf env ns ast =
+  let lf =
+    match ast with
+    | Ast1_parenthesized_leaf l -> l
+    | Ast1_backquoted_leaf l -> l
+    | Ast1_leaf l -> l
+    | _ -> assert false
+  in
+  let newrlf =
+    match lf.token with
+    (* Unqualified name: just look it up. *)
+    | VarId | ConId | VarSym | ConSym ->
+        Rleaf_name (lookup env (ns, None, lf.contents))
+    (* Qualified name: pull out qualified part, then look it up.*)
+    | QVarId | QConId | QVarSym | QConSym ->
+        let (pfx,raw) = String.split lf.contents "." in
+        Rleaf_name (lookup env (ns, Some pfx, raw))
+    (* Literal: just copy it over *)
+    | IntLit ->
+        Rleaf_literal (Lit_int, lf.contents)
+    | FloatLit ->
+        Rleaf_literal (Lit_float, lf.contents)
+    | CharLit ->
+        Rleaf_literal (Lit_char, lf.contents)
+    | StringLit ->
+        Rleaf_literal (Lit_string, lf.contents)
+    (* The special case of RColon, which counts as a name (Prelude.:) *)
+    | RColon ->
+        Rleaf_name (lookup env (ns, Some "Prelude", ":"))
+  in
+  { ast with node1 = Ast1_rleaf newrlf }
+;;
 
 (* Basically just recursively descend through the tree, keeping track of the
  * current environment at all times. When we reach a leaf, use the local

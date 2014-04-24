@@ -427,15 +427,15 @@ type name =
 
 (* Literals used in source program *)
 type literal =
-  | Lit_num of int
-  | Lit_frac of float
-  | Lit_char of char
-  | Lit_string of string
+  | Lit_int
+  | Lit_float
+  | Lit_char
+  | Lit_string
 
 (* A "post-rename leaf" *)
 type rleaf =
   | Rleaf_name of name
-  | Rleaf_literal of literal
+  | Rleaf_literal of literal * string
 
 (* Output of parse_check. Same as ast0 except where indicated. *)
 type ast1 = {
@@ -602,9 +602,11 @@ and ast1node =
    * parametrized types and stuff - but this is quick and dirty. Note that
    * these are the only possibilities: all reserved words, special chars, etc
    * are been eliminated by parsing to abstract syntax EXCEPT for RColon, which
-   * will be translated to Prelude.(:) (ie a name). *)
-  | Ast1_parenthesized_rleaf of rleaf
-  | Ast1_backquoted_rleaf of rleaf
+   * will be translated to Prelude.(:) (ie a name).
+   * Note that we no longer need to keep track of whether the leaf is
+   * parenthesized, backquoted, etc., as whether or not we have an operator or
+   * function on our hands is entirely determined by this leaf's position in
+   * the ast (eg is its parent an Ast1_infixexp_op or an Ast1_exp10_aexps) *)
   | Ast1_rleaf of rleaf
 
 
