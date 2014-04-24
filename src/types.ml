@@ -403,12 +403,13 @@ and ast0node =
    * copied out by higher-level node once list is complete. *)
   | Ast0_partial_list of ast0 list
 
+(* Note that Haskell really has 5 namespaces - variables, constructors, type
+ * variables, type constructors, and classes - but type constructors and
+ * classes cannot share a name, and constructors and variables are
+ * distinguished by capitalization, so only need 2 to disambiguate. *)
 type namespace =
-  | Ns_var  (* Ordinary values *)
-  | Ns_data (* Data constructors *)
-  | Ns_tv   (* Type variables *)
-  | Ns_tc   (* Type constructors *)
-  | Ns_cls  (* Classes *)
+  | Ns_val    (* Ordinary values - vars, funs, value (data) constructors *)
+  | Ns_type   (* Type variables, type constructors, classes *)
 
 (* Almost a name - we've identified the base string and namespace (and any
  * existing prefix), but not yet the real src module or unique identifier. *)
