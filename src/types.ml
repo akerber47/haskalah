@@ -621,3 +621,7 @@ exception Parse_error of string
 (* Name error: error message *)
 exception Name_error of string
 ;;
+
+(* Fixity error : error message *)
+exception Fixity_error of string
+;;

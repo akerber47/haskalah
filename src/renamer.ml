@@ -483,7 +483,8 @@ let rec rename env ast =
         Option.map (rename newenv) ctxt, rename newenv t)
   (* Give any fixity declaration (after renaming) to the fixity resolver. *)
   | Ast1_decl_fixity (a1,oa2,a3s) ->
-      let decl = Ast1_decl_fixity (a1, oa2, List.map (rename env) a3s) in begin
+      let decl = Ast1_decl_fixity (a1, Option.map (rename env) oa2,
+        List.map (rename env) a3s) in begin
         Fixity.declare decl;
         decl
       end
