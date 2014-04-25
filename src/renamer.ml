@@ -370,6 +370,7 @@ let rec rename_leaf env ns ast =
     (* The special case of RColon, which counts as a name (Prelude.:) *)
     | RColon ->
         Rleaf_name (lookup env (ns, Some "Prelude", ":"))
+    | _ -> assert false
   in
   { ast with node1 = Ast1_rleaf newrlf }
 ;;
