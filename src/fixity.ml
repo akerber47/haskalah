@@ -323,7 +323,7 @@ and do_infixpat (min_a,min_i) ast =
  * (ast <Ast1_infix>, ast <Ast1_node/op> list) *)
 and do_infix_helper (min_a,min_i) (prev_a,prev_i) acc rest f_build_tree =
   match rest with
-  (* We've run out of nodes, so this must be our rhs. *)
+  (* We've run out of nodes, so what we already have must be our rhs. *)
   | [] -> (acc, [])
   | [_] -> assert false
   | op::(e::nextrest) ->
