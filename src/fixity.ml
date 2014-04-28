@@ -255,19 +255,114 @@ let rec resolve ast =
         Ast1_fpat (a1, resolve a2)
     | _ -> assert false
   in { ast with node1 = newnode }
+(* XXX giving up on correct block boundaries below. *)
+
 (* The two functions below do all the actual work. They are identical except
  * that one processes expressions, and the other processes patterns.
- * do_infix[exp|pat] : int -> associativity -> ast <Ast1_infix*>
- *   -> ast <Ast1_infix*>
- * The given integer (i) is a lower bound on what operators are
+ * The given integer (min_i) is a lower bound on what operators are
  * permitted in the given infixexp - any operators in the
- * given exp/pat with precedence < i are errors.
- * If associativity is Non, operators of precedence == i are permitted
- * anywhere. However, if associativity is Left or Right, we have an implied
- * precedence i operator directly to the right (if assoc==Left)
- * or left (if assoc==Right) of the given expression. That is, in order to
- * avoid an error, the only precedence == i operators permitted are those of
- * the same associativity located on the appropriate end of the expression. *)
-and do_infixexp min asc ast =
+ * given exp/pat with precedence < min_i are errors. Furthermore:
+ *
+ * If min_a == Non, no operators of precedence == min_i are permitted
+ * anywhere. However, if min_a == Left or Right, precedence == min_i
+ * operators of the same associativity are permitted.
+ * All operators of higher precedence are permitted.
+ *
+ * The easy way to remember this is that the expression needs to still be legal
+ * if it had an operator of fixity (min_a,min_i) directly adjacent to it.
+ *
+ * do_infix[exp|pat] : fixity -> ast <Ast1_infix*>
+ *   -> ast <Ast1_infix*> *)
+and do_infixexp (min_a,min_i) ast =
+  let nodes = infix_to_list ast in
+  fst (do_infix_helper (min_a,min_i) (Non,~-1)
+    { node1 = Ast1_infixexp_exp10 (List.hd nodes);
+        blockstart = -1; blockend = -1 }
+    (List.tl nodes)
+    (fun a1 a2 a3 ->
+      { node1 = Ast1_infixexp_op (a1, a2, a3);
+        blockstart = -1; blockend = -1 }))
 
+and do_infixpat (min_a,min_i) ast =
+  let nodes = infix_to_list ast in
+  fst (do_infix_helper (min_a,min_i) (Non,~-1)
+    { node1 = Ast1_infixpat_pat10 (List.hd nodes);
+        blockstart = -1; blockend = -1 }
+    (List.tl nodes)
+    (fun a1 a2 a3 ->
+      { node1 = Ast1_infixpat_op (a1, a2, a3);
+        blockstart = -1; blockend = -1 }))
 
+(* Algorithm copied from
+ * https://ghc.haskell.org/trac/haskell-prime/wiki/FixityResolution
+ * See there for details.
+ *
+ * Summary:
+ * do_infix_helper computes the rhs of an (implicit) op with fixity =
+ * (prev_a, prev_i). The arguments acc (a tree) and rest (a list) together
+ * contain all nodes "to the right" of that op in our infix
+ * expression, in the order (acc in preorder) followed by (rest). We use 2
+ * arguments so we can move nodes between them as we recur - acc contains nodes
+ * that certainly belong in the rhs, while nodes in rest have yet to be
+ * processed and may or may not be used.
+ *
+ * Unlike the ghc algorithm, also pass in a minimum bound on fixity (as passed
+ * into do_infixexp and do_infixpat).
+ *
+ * Finally, also take in a function that builds the appropriate kind of tree
+ * node (Ast1_infixexp_op or Ast1_infixpat_op) so we can use this function for
+ * both infixexps and infixpats.
+ *
+ * do_infix_helper returns a new tree containing that rhs, and a list of
+ * any remaining unused nodes.
+ *
+ * (ast <Ast1_infix> -> ast <Ast1_op> -> ast <Ast1_infix> -> ast <Ast1_infix>)
+ *  ->
+ * fixity -> fixity -> ast <Ast1_infix> -> ast <Ast1_node/op> list
+ *  ->
+ * (ast <Ast1_infix>, ast <Ast1_node/op> list) *)
+and do_infix_helper (min_a,min_i) (prev_a,prev_i) acc rest f_build_tree =
+  match rest with
+  (* We've run out of nodes, so this must be our rhs. *)
+  | [] -> (acc, [])
+  | [_] -> assert false
+  | op::(e::nextrest) ->
+    let (a,i) = get_fixity op in begin
+      (* Check for violation of legal bounds *)
+      if i < min_i ||
+        (i == min_i && (min_a == Non || a != min_a)) then
+          raise (Fixity_error (Printf.sprintf2
+            "Operator precedence %d too low for section argument"
+            i));
+      (* Check if operator is not permitted next to last operator *)
+      if i == prev_i && (prev_a == Non || a != prev_a) then
+          raise (Fixity_error (Printf.sprintf2
+            "Adjacent ops of same precedence %d but different associativity"
+            i));
+      (* If lower precedence or left associative, won't be part of our rhs. *)
+      if i < prev_i || (i == prev_i && i == Left) then
+        (acc, rest)
+      (* Otherwise, our rhs will (at least) include op and its rhs. *)
+      else
+        (* Find an rhs for op, recursively. It must at least contain e. *)
+        let (rhs, rhsrest) =
+          do_infix_helper (min_a, min_i) (a, i) e nextrest f_build_tree
+        in
+        (* Since op is lower-precedence than any operators already in acc (as
+         * otherwise we would have hit it via a recursive call while building
+         * acc), acc is the lhs of op, all inside the rhs we are trying to
+         * compute. Move nodes accordingly and continue traversing the list. *)
+        do_infix_helper (min_a, min_i) (prev_a, prev_i)
+          (f_build_tree acc op rhs)
+          rhsrest
+          f_build_tree
+
+(* tiny helper function *)
+and infix_to_list ast =
+  match ast.node with
+  | Ast1_infixexp_exp10 a1 -> [a1]
+  | Ast1_infixexp_op (a1,a2,a3) -> a1::(a2::infix_to_list a3)
+  | Ast1_infixpat_pat10 a1 -> [a1]
+  | Ast1_infixpat_op (a1,a2,a3) -> a1::(a2::infix_to_list a3)
+  | _ -> assert false
+;;
