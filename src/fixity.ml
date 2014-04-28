@@ -8,6 +8,7 @@ type associativity =
   | Right
   | Non
 ;;
+type fixity = associativity * int
 
 (* To avoid having to do a second (!) descent just to handle fixities, we store
  * all operator fixities (by name) in a global lookup table. Yeah, this is
@@ -20,7 +21,7 @@ let fixities = Hashtbl.create HASHTABLE_SIZE
 
 (* Lookup the fixity of an operator (by name). If not found, return the default
  * (left associative, precedence 9)
- * ast <Ast1_rleaf <Rleaf_name>> -> associativity * int *)
+ * ast <Ast1_rleaf <Rleaf_name>> -> fixity *)
 let get_fixity ast =
   match ast.node with
   | Ast1_rleaf (Rleaf_name nm) ->
@@ -125,14 +126,14 @@ let rec resolve ast =
         let (a,i) = get_fixity a2 in
         match a with
         | Left ->
-            Ast1_funlhs_funop (do_infixpat i Left a1, a2,
-              do_infixpat (i+1) Non a3)
+            Ast1_funlhs_funop (do_infixpat (Left,i) a1, a2,
+              do_infixpat (Non,i) a3)
         | Right ->
-            Ast1_funlhs_funop (do_infixpat (i+1) Non a1, a2,
-              do_infixpat i Right a3)
+            Ast1_funlhs_funop (do_infixpat (Non,i) a1, a2,
+              do_infixpat (Right,i) a3)
         | Non ->
-            Ast1_funlhs_funop (do_infixpat (i+1) Non a1, a2,
-              do_infixpat (i+1) Non a3)
+            Ast1_funlhs_funop (do_infixpat (Non,i) a1, a2,
+              do_infixpat (Non,i) a3)
     | Ast1_funlhs_nested (a1,a2s) ->
         Ast1_funlhs_nested (resolve a1, List.map resolve a2s)
     | Ast1_rhs_eq (a1,oa2s) ->
@@ -147,7 +148,7 @@ let rec resolve ast =
     (* The key cases *)
     | Ast1_infixexp_op _
     | Ast1_infixexp_exp10 _ ->
-        (do_infixexp 0 Non ast).node1
+        (do_infixexp (Non,~-1) ast).node1
     (* For all deeper expressions, look for pieces that might contain operators
      * inside parenthesized higher-up expressions *)
     | Ast1_exp10_lambda (a1s,a2) ->
@@ -185,15 +186,15 @@ let rec resolve ast =
     | Ast1_aexp_lsec (a1,a2) ->
         let (a,i) = get_fixity a2 in
         if a == Left then
-          Ast1_aexp_lsec (do_infixexp i Left a1, a2)
+          Ast1_aexp_lsec (do_infixexp (Left,i) a1, a2)
         else
-          Ast1_aexp_lsec (do_infixexp (i+1) Non a1, a2)
+          Ast1_aexp_lsec (do_infixexp (Non,i) a1, a2)
     | Ast1_aexp_rsec (a1,a2) ->
         let (a,i) = get_fixity a1 in
         if a == Right then
-          Ast1_aexp_rsec (a1, do_infixexp i Right a2)
+          Ast1_aexp_rsec (a1, do_infixexp (Right,i) a2)
         else
-          Ast1_aexp_rsec (a1, do_infixexp (i+1) Non a1)
+          Ast1_aexp_rsec (a1, do_infixexp (Non,i) a1)
     | Ast1_aexp_lbupdate (a1,a2s) ->
         Ast1_aexp_lbupdate (resolve a1, List.map resolve a2s)
     | Ast1_qual_assign (a1,a2) ->
@@ -225,7 +226,7 @@ let rec resolve ast =
     (* Similar key cases for patterns *)
     | Ast1_infixpat_op _
     | Ast1_infixpat_pat10 _ ->
-        (do_infixpat 0 None ast).node1
+        (do_infixpat (None,i) ast).node1
     | Ast1_pat10_con (a1,a2s) ->
         Ast1_pat10_con (a1, List.map resolve a2s)
     | Ast1_pat10_apat a1 ->
